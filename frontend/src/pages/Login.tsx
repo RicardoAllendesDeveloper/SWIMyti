@@ -102,6 +102,31 @@ function Login() {
         return
       }
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        // Si el usuario no tiene perfil en public.usuarios (registro con
+        // confirmación de email), completar el auto-registro en el primer login.
+        const { data: perfil } = await supabase
+          .from('usuarios')
+          .select('id_usuario')
+          .eq('id_usuario', user.id)
+          .maybeSingle()
+
+        if (!perfil) {
+          const meta = user.user_metadata ?? {}
+          await supabase.rpc('fn_auto_registro_paciente', {
+            p_rut: (meta.rut as string) || '',
+            p_nombres: (meta.nombres as string) || 'Paciente',
+            p_apellidos: (meta.apellidos as string) || 'Registrado',
+            p_telefono: (meta.telefono as string) || null,
+            p_email: user.email ?? '',
+          })
+        }
+      }
+
       // Esperar breve a que el contexto resuelva el rol para redirigir al portal natural
       const { data } = await supabase
         .from('usuarios')
