@@ -1,0 +1,56 @@
+.portal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.4rem;
+}
+
+.portal-card-full {
+  grid-column: 1 / -1;
+}
+
+.portal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.portal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+
+.portal-item strong {
+  color: #1f2937;
+}
+
+.portal-muted {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 0.15rem 0;
+}
+
+.portal-text {
+  color: #334155;
+  font-size: 0.92rem;
+  margin: 0.3rem 0 0;
+}
+
+.portal-estado {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .portal-grid {
+    grid-template-columns: 1fr;
+  }
+}

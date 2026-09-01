@@ -1,0 +1,14 @@
+# SWIMyti — gitignore raíz
+
+# Scripts con credenciales locales (nunca subir)
+scripts/keepalive_supabase.py
+
+# Entorno local
+.env
+.env.*
+!.env.example
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log

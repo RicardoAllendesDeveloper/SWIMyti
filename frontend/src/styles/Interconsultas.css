@@ -1,0 +1,11 @@
+.ic-acciones {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ic-acciones .dash-btn-primary,
+.ic-acciones .dash-btn-secondary {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+}

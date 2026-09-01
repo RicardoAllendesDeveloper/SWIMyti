@@ -1,0 +1,141 @@
+.reg-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #0f4c81 0%, #1a6bb0 100%);
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.reg-card {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 2.2rem 2.4rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.reg-brand {
+  text-align: center;
+  margin-bottom: 1.6rem;
+}
+
+.reg-brand-mark {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
+  background: #0f4c81;
+  color: #ffd479;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  margin: 0 auto 0.8rem;
+}
+
+.reg-brand h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+.reg-brand p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.reg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.reg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.reg-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.reg-field input {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1f2937;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reg-field input:focus {
+  outline: none;
+  border-color: #0f4c81;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
+}
+
+.reg-error {
+  background: #fdecec;
+  color: #c0392b;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.reg-submit {
+  padding: 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background: #0f4c81;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.reg-submit:hover:not(:disabled) {
+  background: #1a6bb0;
+}
+
+.reg-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reg-footer {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 1rem 0 0;
+}
+
+.reg-link {
+  color: #0f4c81;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.reg-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .reg-row {
+    grid-template-columns: 1fr;
+  }
+}

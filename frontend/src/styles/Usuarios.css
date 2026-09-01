@@ -1,0 +1,19 @@
+.usuario-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+.usuario-estado.on {
+  background: #e7f6ec;
+  color: #1d7a3f;
+}
+
+.usuario-estado.off {
+  background: #fdecec;
+  color: #c0392b;
+}

@@ -1,0 +1,14 @@
+.citas-filtro {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1f2937;
+  background: #fff;
+}
+
+.citas-filtro:focus {
+  outline: none;
+  border-color: #0f4c81;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
+}
