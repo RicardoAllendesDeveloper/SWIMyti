@@ -3,6 +3,9 @@
 # Scripts con credenciales locales (nunca subir)
 scripts/keepalive_supabase.py
 
+# Archivos de contexto de desarrollo / agente (no subir)
+AGENT.md
+
 # Entorno local
 .env
 .env.*
