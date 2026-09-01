@@ -1,8 +1,5 @@
 # SWIMyti — gitignore raíz
 
-# Scripts con credenciales locales (nunca subir)
-scripts/keepalive_supabase.py
-
 # Archivos de contexto de desarrollo / agente (no subir)
 AGENT.md
 
