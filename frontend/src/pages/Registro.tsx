@@ -87,7 +87,12 @@ function Registro() {
         email: email.trim(),
         password,
         options: {
-          data: { nombres: nombres.trim(), apellidos: apellidos.trim() },
+          data: {
+            nombres: nombres.trim(),
+            apellidos: apellidos.trim(),
+            rut: rut.trim(),
+            telefono: telefono.trim(),
+          },
         },
       })
 
