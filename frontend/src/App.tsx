@@ -28,7 +28,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria', 'administrativo', 'unidad_apoyo']}>
+              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
                 <Dashboard />
               </RoleRoute>
             </ProtectedRoute>
@@ -48,7 +48,9 @@ function App() {
           path="/ficha/:id"
           element={
             <ProtectedRoute>
-              <DetalleFicha />
+              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+                <DetalleFicha />
+              </RoleRoute>
             </ProtectedRoute>
           }
         />

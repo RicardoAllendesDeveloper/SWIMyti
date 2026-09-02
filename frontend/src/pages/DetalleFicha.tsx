@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
-import { puedeEnmendar } from '../utils/permisos'
+import { puedeEnmendar, homeRol } from '../utils/permisos'
 import type { EnmiendaAuditoria, FichaMedica, UsuarioResumen } from '../types/database'
 import '../styles/DetalleFicha.css'
 
@@ -314,7 +314,7 @@ function DetalleFicha() {
           <button
             type="button"
             className="df-back"
-            onClick={() => navigate(rol === 'paciente' ? '/portal' : '/dashboard')}
+            onClick={() => navigate(homeRol(rol))}
           >
             ← Volver al {rol === 'paciente' ? 'portal' : 'dashboard'}
           </button>

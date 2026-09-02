@@ -669,8 +669,6 @@ create policy fichas_select_clinico_o_paciente
   to authenticated
   using (
     (select public.fn_es_personal_clinico())
-    or (select public.fn_rol_actual()) in ('administrativo', 'unidad_apoyo')
-    or id_paciente = (select public.fn_mi_id_paciente())
   );
 
 drop policy if exists fichas_insert_creadores on public.fichas_medicas;
@@ -693,12 +691,6 @@ create policy enmiendas_select_clinico_o_paciente
   to authenticated
   using (
     (select public.fn_es_personal_clinico())
-    or exists (
-      select 1
-      from public.fichas_medicas f
-      where f.id_ficha = enmiendas_auditoria.id_ficha
-        and f.id_paciente = (select public.fn_mi_id_paciente())
-    )
   );
 
 drop policy if exists enmiendas_insert_doctores on public.enmiendas_auditoria;
@@ -718,13 +710,7 @@ create policy anexos_select_staff_o_paciente
   for select
   to authenticated
   using (
-    (select public.fn_es_staff())
-    or exists (
-      select 1
-      from public.fichas_medicas f
-      where f.id_ficha = anexos_clinicos.id_ficha
-        and f.id_paciente = (select public.fn_mi_id_paciente())
-    )
+    (select public.fn_es_personal_clinico())
   );
 
 drop policy if exists anexos_insert_autorizados on public.anexos_clinicos;

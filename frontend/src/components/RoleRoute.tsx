@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthRol, type RolUsuario } from '../context/AuthRolContext'
+import { homeRol } from '../utils/permisos'
 
 type RoleRouteProps = {
   roles: RolUsuario[]
@@ -43,7 +44,7 @@ function RoleRoute({ roles, children }: RoleRouteProps) {
   }
 
   if (!roles.includes(rol)) {
-    return <Navigate to={rol === 'paciente' ? '/portal' : '/dashboard'} replace />
+    return <Navigate to={homeRol(rol)} replace />
   }
 
   return children

@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigError } from '../services/supabase'
+import { useAuthRol, type RolUsuario } from '../context/AuthRolContext'
+import { homeRol } from '../utils/permisos'
 import '../styles/Login.css'
 
 function mapAuthError(message: string): string {
@@ -31,6 +33,7 @@ function mapAuthError(message: string): string {
 
 function Login() {
   const navigate = useNavigate()
+  const { rol } = useAuthRol()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -141,7 +144,7 @@ function Login() {
       const rolNombre = Array.isArray(related)
         ? related[0]?.nombre_rol
         : related?.nombre_rol
-      navigate(rolNombre === 'paciente' ? '/portal' : '/dashboard', { replace: true })
+      navigate(homeRol(rolNombre as RolUsuario) as string, { replace: true })
     } catch {
       setError('Error inesperado al iniciar sesión.')
     } finally {
@@ -160,7 +163,7 @@ function Login() {
   }
 
   if (hasSession) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={homeRol(rol)} replace />
   }
 
   return (
