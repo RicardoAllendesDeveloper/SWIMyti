@@ -61,6 +61,8 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change,
+      email_change_token_new, email_change_token_current,
       created_at, updated_at
     ) values (
       '00000000-0000-0000-0000-000000000000',
@@ -68,6 +70,7 @@ begin
       now(),
       jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
       jsonb_build_object('nombres', p_nombres, 'apellidos', p_apellidos),
+      '', '', '', '', '',
       now(), now()
     );
 
