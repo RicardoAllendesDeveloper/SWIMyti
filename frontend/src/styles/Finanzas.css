@@ -1,0 +1,72 @@
+/* SWIMyti - Finanzas / Presupuestos (CSS puro) */
+
+.finanzas-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.finanzas-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.finanzas-card-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.4rem;
+}
+
+.finanzas-card-valor {
+  font-size: 1.6rem;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.finanzas-card-ingreso {
+  border-left: 4px solid #16a34a;
+}
+
+.finanzas-card-egreso {
+  border-left: 4px solid #dc2626;
+}
+
+.finanzas-card-balance-pos {
+  border-left: 4px solid #0f4c81;
+}
+
+.finanzas-card-balance-neg {
+  border-left: 4px solid #dc2626;
+}
+
+.finanzas-tipo {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.finanzas-tipo-ingreso {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.finanzas-tipo-egreso {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@media (max-width: 640px) {
+  .finanzas-resumen {
+    grid-template-columns: 1fr;
+  }
+}

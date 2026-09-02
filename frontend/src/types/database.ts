@@ -106,3 +106,41 @@ export type Interconsulta = {
   solicitante?: UsuarioResumen | UsuarioResumen[] | null
   profesional?: UsuarioResumen | UsuarioResumen[] | null
 }
+
+export type BonoAtencion = {
+  id_bono: number
+  id_paciente: number
+  sistema_prevision: string
+  monto?: number | null
+  estado: 'pendiente' | 'emitido' | 'anulado'
+  fecha_emision: string
+  detalle?: string | null
+  pacientes?: Pick<Paciente, 'nombres' | 'apellidos' | 'rut'> | null
+}
+
+export type PartidaPresupuesto = {
+  id_partida: number
+  tipo: 'ingreso' | 'egreso'
+  concepto: string
+  monto: number
+  periodo: string
+  descripcion?: string | null
+}
+
+export type RecetaMedica = {
+  id_receta: number
+  id_paciente: number
+  id_usuario_emisor: string
+  medicamentos: string
+  indicaciones?: string | null
+  fecha_emision: string
+}
+
+export type CertificadoClinico = {
+  id_certificado: number
+  id_paciente: number
+  id_usuario_emisor: string
+  tipo_certificado: string
+  detalle?: string | null
+  fecha_emision: string
+}
