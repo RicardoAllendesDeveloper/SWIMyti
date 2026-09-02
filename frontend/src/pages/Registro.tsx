@@ -133,13 +133,27 @@ function Registro() {
       }
 
       // 2) Ejecutar el auto-registro (crea perfil usuario + paciente)
-      const { error: rpcError } = await supabase.rpc('fn_auto_registro_paciente', {
+      // Si el JWT falla por desfase de reloj, refrescamos la sesión e
+      // integramos un reintento antes de reportar el error.
+      let { error: rpcError } = await supabase.rpc('fn_auto_registro_paciente', {
         p_rut: rut.trim(),
         p_nombres: nombres.trim(),
         p_apellidos: apellidos.trim(),
         p_telefono: telefono.trim() || null,
         p_email: email.trim(),
       })
+
+      if (rpcError && rpcError.message.includes('JWT')) {
+        await supabase.auth.getSession()
+        const retry = await supabase.rpc('fn_auto_registro_paciente', {
+          p_rut: rut.trim(),
+          p_nombres: nombres.trim(),
+          p_apellidos: apellidos.trim(),
+          p_telefono: telefono.trim() || null,
+          p_email: email.trim(),
+        })
+        rpcError = retry.error
+      }
 
       if (rpcError) {
         setError(

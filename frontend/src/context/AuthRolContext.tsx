@@ -65,13 +65,24 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       // o retorno desde el correo de confirmación).
       try {
         const meta = user.user_metadata ?? {}
-        await supabase.rpc('fn_auto_registro_paciente', {
+        let rpcResult = await supabase.rpc('fn_auto_registro_paciente', {
           p_rut: (meta.rut as string) || '',
           p_nombres: (meta.nombres as string) || 'Paciente',
           p_apellidos: (meta.apellidos as string) || 'Registrado',
           p_telefono: (meta.telefono as string) || null,
           p_email: user.email ?? '',
         })
+        // Reintentar si el JWT falla por desfase de reloj
+        if (rpcResult.error && rpcResult.error.message.includes('JWT')) {
+          await supabase.auth.getSession()
+          rpcResult = await supabase.rpc('fn_auto_registro_paciente', {
+            p_rut: (meta.rut as string) || '',
+            p_nombres: (meta.nombres as string) || 'Paciente',
+            p_apellidos: (meta.apellidos as string) || 'Registrado',
+            p_telefono: (meta.telefono as string) || null,
+            p_email: user.email ?? '',
+          })
+        }
         // Re-intentar obtener el rol tras crear el perfil
         const { data: retry } = await supabase
           .from('usuarios')
