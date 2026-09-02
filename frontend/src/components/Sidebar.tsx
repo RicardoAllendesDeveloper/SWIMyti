@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthRol } from '../context/AuthRolContext'
 import { supabase } from '../services/supabase'
 import { NOMBRE_ROL, tieneModulo, type Modulo } from '../utils/permisos'
@@ -42,7 +42,10 @@ function Sidebar({ moduloActivo }: SidebarProps) {
 
   return (
     <aside className="dash-sidebar" aria-label="Navegación principal">
-      <div className="dash-brand">
+      <Link
+        to={rol === 'paciente' ? '/portal' : rol ? '/dashboard' : '/'}
+        className="dash-brand"
+      >
         <div className="dash-brand-mark" aria-hidden="true">
           SW
         </div>
@@ -50,7 +53,7 @@ function Sidebar({ moduloActivo }: SidebarProps) {
           <h1>SWIMyti</h1>
           <p>Gestión clínica integral</p>
         </div>
-      </div>
+      </Link>
 
       <nav className="dash-nav">
         {visibles.map((item) => {

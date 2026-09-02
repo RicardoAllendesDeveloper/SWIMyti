@@ -33,6 +33,7 @@ function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(supabaseConfigError)
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(!supabaseConfigError)
@@ -188,17 +189,28 @@ function Login() {
 
           <div className="login-field">
             <label htmlFor="login-password">Contraseña</label>
-            <input
-              id="login-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading || Boolean(supabaseConfigError)}
-            />
+            <div className="login-pw-wrapper">
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading || Boolean(supabaseConfigError)}
+              />
+              <button
+                type="button"
+                className="login-pw-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           {error ? (

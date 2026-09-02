@@ -60,6 +60,36 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       .maybeSingle()
 
     if (error || !data) {
+      // Auto-crear perfil si el usuario se registró con confirmación de email
+      // y su perfil aún no existe en public.usuarios (caso típico: primer login
+      // o retorno desde el correo de confirmación).
+      try {
+        const meta = user.user_metadata ?? {}
+        await supabase.rpc('fn_auto_registro_paciente', {
+          p_rut: (meta.rut as string) || '',
+          p_nombres: (meta.nombres as string) || 'Paciente',
+          p_apellidos: (meta.apellidos as string) || 'Registrado',
+          p_telefono: (meta.telefono as string) || null,
+          p_email: user.email ?? '',
+        })
+        // Re-intentar obtener el rol tras crear el perfil
+        const { data: retry } = await supabase
+          .from('usuarios')
+          .select('id_rol, roles(nombre_rol)')
+          .eq('id_usuario', user.id)
+          .maybeSingle()
+        if (retry) {
+          const rel = retry.roles as
+            | { nombre_rol: string }
+            | { nombre_rol: string }[]
+            | null
+          const rn = Array.isArray(rel) ? rel[0]?.nombre_rol : rel?.nombre_rol
+          setRol((rn as RolUsuario) ?? null)
+          return
+        }
+      } catch {
+        // Si el auto-registro falla, continuar sin perfil
+      }
       setRol(null)
       return
     }

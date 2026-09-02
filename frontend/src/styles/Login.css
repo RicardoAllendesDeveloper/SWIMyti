@@ -124,6 +124,34 @@
   border-radius: 8px;
 }
 
+.login-pw-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-pw-wrapper input {
+  width: 100%;
+  padding-right: 2.8rem;
+}
+
+.login-pw-toggle {
+  position: absolute;
+  right: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.login-pw-toggle:hover {
+  opacity: 1;
+}
+
 .login-submit {
   margin-top: 0.35rem;
   width: 100%;
