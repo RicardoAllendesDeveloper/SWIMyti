@@ -153,12 +153,7 @@ create policy recetas_select_staff on public.recetas_medicas
 
 drop policy if exists recetas_select_paciente on public.recetas_medicas;
 create policy recetas_select_paciente on public.recetas_medicas
-  for select using (
-    public.fn_mi_id_paciente() in (
-      select rm.id_paciente from public.recetas_medicas rm
-      where rm.id_paciente = public.recetas_medicas.id_paciente
-    )
-  );
+  for select using (public.fn_mi_id_paciente() = public.recetas_medicas.id_paciente);
 
 drop policy if exists recetas_insert_staff on public.recetas_medicas;
 create policy recetas_insert_staff on public.recetas_medicas
@@ -190,12 +185,7 @@ create policy cert_select_staff on public.certificados_clinicos
 
 drop policy if exists cert_select_paciente on public.certificados_clinicos;
 create policy cert_select_paciente on public.certificados_clinicos
-  for select using (
-    public.fn_mi_id_paciente() in (
-      select cc.id_paciente from public.certificados_clinicos cc
-      where cc.id_paciente = public.certificados_clinicos.id_paciente
-    )
-  );
+  for select using (public.fn_mi_id_paciente() = public.certificados_clinicos.id_paciente);
 
 drop policy if exists cert_insert_staff on public.certificados_clinicos;
 create policy cert_insert_staff on public.certificados_clinicos
