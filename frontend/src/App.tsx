@@ -1,15 +1,18 @@
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleRoute from './components/RoleRoute'
+import Bonos from './pages/Bonos'
 import Citas from './pages/Citas'
 import Dashboard from './pages/Dashboard'
 import DetalleFicha from './pages/DetalleFicha'
 import Disponibilidad from './pages/Disponibilidad'
+import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Pacientes from './pages/Pacientes'
 import Portal from './pages/Portal'
+import Recetas from './pages/Recetas'
 import Registro from './pages/Registro'
 import Usuarios from './pages/Usuarios'
 import './styles/App.css'
@@ -83,6 +86,36 @@ function App() {
             <ProtectedRoute>
               <RoleRoute roles={['enfermeria', 'doctor', 'administrativo', 'administrador', 'paciente']}>
                 <Interconsultas />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bonos"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['administrador', 'administrativo']}>
+                <Bonos />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/finanzas"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['administrador', 'administrativo']}>
+                <Finanzas />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recetas"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['administrador', 'doctor']}>
+                <Recetas />
               </RoleRoute>
             </ProtectedRoute>
           }
