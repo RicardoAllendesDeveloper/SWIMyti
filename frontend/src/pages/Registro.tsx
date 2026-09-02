@@ -117,13 +117,17 @@ function Registro() {
       }
 
       // Supabase puede no retornar sesión tras signUp (confirmación de email).
-      // Iniciamos sesión para que auth.uid() exista antes de crear el perfil.
-      if (!signUpData.session) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        })
-        if (signInError) {
+      // Siempre iniciamos sesión para obtener un JWT fresco del servidor
+      // (el JWT del signUp usa el reloj del cliente y puede ser rechazado
+      // si hay desfase mínimo con el servidor de Supabase → "JWT issued at future").
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (signInError) {
+        if (signUpData.session) {
+          // Si el signUp retornó sesión pero signIn falló, continuar con la sesión existente
+        } else {
           setSuccess(
             'Cuenta creada correctamente. Revisa tu correo para activarla y luego inicia sesión.',
           )
@@ -133,27 +137,13 @@ function Registro() {
       }
 
       // 2) Ejecutar el auto-registro (crea perfil usuario + paciente)
-      // Si el JWT falla por desfase de reloj, refrescamos la sesión e
-      // integramos un reintento antes de reportar el error.
-      let { error: rpcError } = await supabase.rpc('fn_auto_registro_paciente', {
+      const { error: rpcError } = await supabase.rpc('fn_auto_registro_paciente', {
         p_rut: rut.trim(),
         p_nombres: nombres.trim(),
         p_apellidos: apellidos.trim(),
         p_telefono: telefono.trim() || null,
         p_email: email.trim(),
       })
-
-      if (rpcError && rpcError.message.includes('JWT')) {
-        await supabase.auth.getSession()
-        const retry = await supabase.rpc('fn_auto_registro_paciente', {
-          p_rut: rut.trim(),
-          p_nombres: nombres.trim(),
-          p_apellidos: apellidos.trim(),
-          p_telefono: telefono.trim() || null,
-          p_email: email.trim(),
-        })
-        rpcError = retry.error
-      }
 
       if (rpcError) {
         setError(
