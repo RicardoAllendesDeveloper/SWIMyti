@@ -197,6 +197,16 @@
   color: #94a3b8;
 }
 
+.login-link {
+  color: #0f4c81;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 480px) {
   .login-page {
     padding: 1rem;
