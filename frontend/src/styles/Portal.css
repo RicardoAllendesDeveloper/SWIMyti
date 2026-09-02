@@ -54,3 +54,20 @@
     grid-template-columns: 1fr;
   }
 }
+.portal-aviso {
+  padding: 1rem 1.1rem;
+  border-left: 4px solid #b45309;
+  background: #fffbeb;
+  border-radius: 10px;
+}
+
+.portal-aviso p {
+  margin: 0.4rem 0;
+  color: #78350f;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.portal-aviso strong {
+  color: #92400e;
+}

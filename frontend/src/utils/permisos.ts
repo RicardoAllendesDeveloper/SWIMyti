@@ -96,12 +96,31 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
   ],
   doctor: ['fichas', 'pacientes', 'disponibilidad', 'interconsultas', 'recetas'],
   enfermeria: ['fichas', 'pacientes', 'citas', 'interconsultas'],
-  administrativo: ['fichas', 'pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
-  unidad_apoyo: ['fichas', 'pacientes'],
+  administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
+  unidad_apoyo: ['pacientes'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
 
 export function tieneModulo(rol: RolUsuario, modulo: Modulo): boolean {
   if (!rol) return false
   return MODULOS_POR_ROL[rol].includes(modulo)
+}
+
+/**
+ * Ruta inicial (home) natural por rol, usada tras el login y como fallback
+ * cuando un rol no tiene permitido un módulo. Los roles no clínicos ya no
+ * aterrizan en /dashboard (fichas clínicas), sino en su módulo principal.
+ */
+export function homeRol(rol: RolUsuario): string {
+  switch (rol) {
+    case 'paciente':
+      return '/portal'
+    case 'administrativo':
+      return '/citas'
+    case 'unidad_apoyo':
+      return '/pacientes'
+    default:
+      // administrador, doctor, enfermeria -> fichas clínicas
+      return '/dashboard'
+  }
 }

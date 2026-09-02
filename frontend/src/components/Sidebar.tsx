@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthRol } from '../context/AuthRolContext'
 import { supabase } from '../services/supabase'
-import { NOMBRE_ROL, tieneModulo, type Modulo } from '../utils/permisos'
+import { NOMBRE_ROL, tieneModulo, homeRol, type Modulo } from '../utils/permisos'
 
 type SidebarProps = {
   moduloActivo?: Modulo
@@ -43,7 +43,7 @@ function Sidebar({ moduloActivo }: SidebarProps) {
   return (
     <aside className="dash-sidebar" aria-label="Navegación principal">
       <Link
-        to={rol === 'paciente' ? '/portal' : rol ? '/dashboard' : '/'}
+        to={rol ? homeRol(rol) : '/'}
         className="dash-brand"
       >
         <div className="dash-brand-mark" aria-hidden="true">
