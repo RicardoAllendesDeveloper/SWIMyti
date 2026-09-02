@@ -46,6 +46,7 @@ function Usuarios() {
   const [rut, setRut] = useState('')
   const [idRol, setIdRol] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const loadRoles = useCallback(async () => {
     const { data, error } = await supabase
@@ -104,6 +105,7 @@ function Usuarios() {
     setRut('')
     setIdRol('')
     setPassword('')
+    setConfirmPassword('')
   }
 
   function openForm() {
@@ -131,6 +133,11 @@ function Usuarios() {
 
     if (password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+
+    if (confirmPassword !== password) {
+      setError('Las contraseñas no coinciden.')
       return
     }
 
@@ -411,6 +418,19 @@ function Usuarios() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Mínimo 8 caracteres"
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="usuario-confirm-password">Confirmar contraseña</label>
+                <input
+                  id="usuario-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite la contraseña"
                   required
                   disabled={saving}
                 />
