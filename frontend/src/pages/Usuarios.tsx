@@ -137,39 +137,26 @@ function Usuarios() {
     setSaving(true)
 
     try {
-      // 1) Crear el usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email.trim(),
-        password,
-        email_confirm: true,
-        user_metadata: { nombres: nombres.trim(), apellidos: apellidos.trim() },
+      // 1) Crear el usuario vía RPC SECURITY DEFINER (valida rol admin en el servidor).
+      //    Antes se usaba supabase.auth.admin.createUser(), que exige la service_role
+      //    key y no funciona desde el cliente con la anon key ("Bear token").
+      const { data: rpcData, error: rpcError } = await supabase.rpc('fn_crear_usuario', {
+        p_email: email.trim(),
+        p_password: password,
+        p_nombres: nombres.trim(),
+        p_apellidos: apellidos.trim(),
+        p_id_rol: Number(idRol),
+        p_rut: rut.trim() || null,
       })
 
-      if (authError) {
-        setError(authError.message || 'No se pudo crear el usuario.')
+      if (rpcError) {
+        setError(rpcError.message || 'No se pudo crear el usuario.')
         return
       }
 
-      if (!authData.user) {
-        setError('El usuario no fue creado.')
-        return
-      }
-
-      // 2) Crear el perfil en public.usuarios con su rol
-      const { error: profileError } = await supabase.from('usuarios').insert({
-        id_usuario: authData.user.id,
-        id_rol: Number(idRol),
-        email: email.trim(),
-        nombres: nombres.trim(),
-        apellidos: apellidos.trim(),
-        rut: rut.trim() || null,
-        activo: true,
-      })
-
-      if (profileError) {
-        setError(
-          `El usuario se creó en Auth, pero el perfil falló: ${profileError.message}. Intenta el seed SQL.`,
-        )
+      const result = rpcData as { ok?: boolean; error?: string } | null
+      if (!result || !result.ok) {
+        setError(result?.error || 'No se pudo crear el usuario.')
         return
       }
 
