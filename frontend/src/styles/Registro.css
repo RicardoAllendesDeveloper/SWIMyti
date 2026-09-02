@@ -96,6 +96,44 @@
   margin: 0;
 }
 
+.reg-success {
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin: 0;
+  border: 1px solid #a7f3d0;
+}
+
+.reg-pw-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.reg-pw-wrapper input {
+  width: 100%;
+  padding-right: 2.8rem;
+}
+
+.reg-pw-toggle {
+  position: absolute;
+  right: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.reg-pw-toggle:hover {
+  opacity: 1;
+}
+
 .reg-submit {
   padding: 0.8rem;
   border: none;

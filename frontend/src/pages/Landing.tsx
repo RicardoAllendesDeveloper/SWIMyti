@@ -38,7 +38,7 @@ function Landing() {
   return (
     <div className="land">
       <header className="land-header">
-        <div className="land-brand">
+        <Link to="/" className="land-brand">
           <div className="land-brand-mark" aria-hidden="true">
             SW
           </div>
@@ -46,7 +46,7 @@ function Landing() {
             <span className="land-brand-name">SWIMyti</span>
             <span className="land-brand-tag">Gestión clínica integral</span>
           </div>
-        </div>
+        </Link>
         <nav className="land-nav" aria-label="Navegación del sitio">
           <a href="#inicio">Inicio</a>
           <a href="#servicios">Servicios</a>

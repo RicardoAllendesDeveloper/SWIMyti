@@ -33,11 +33,15 @@ function Registro() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [nombres, setNombres] = useState('')
   const [apellidos, setApellidos] = useState('')
   const [rut, setRut] = useState('')
   const [telefono, setTelefono] = useState('')
   const [error, setError] = useState<string | null>(supabaseConfigError)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(!supabaseConfigError)
   const [hasSession, setHasSession] = useState(false)
@@ -72,10 +76,16 @@ function Registro() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(supabaseConfigError)
+    setSuccess(null)
     if (supabaseConfigError) return
 
     if (!email.trim() || !password || !nombres.trim() || !apellidos.trim() || !rut.trim()) {
       setError('Completa email, contraseña, nombres, apellidos y RUT.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.')
       return
     }
 
@@ -114,9 +124,10 @@ function Registro() {
           password,
         })
         if (signInError) {
-          setError(
-            'Cuenta creada. Confirma tu email y luego inicia sesión para completar tu perfil.',
+          setSuccess(
+            'Cuenta creada correctamente. Revisa tu correo para activarla y luego inicia sesión.',
           )
+          setLoading(false)
           return
         }
       }
@@ -238,16 +249,57 @@ function Registro() {
 
           <div className="reg-field">
             <label htmlFor="reg-password">Contraseña</label>
-            <input
-              id="reg-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 8 caracteres"
-              required
-              disabled={loading}
-            />
+            <div className="reg-pw-wrapper">
+              <input
+                id="reg-password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 8 caracteres"
+                required
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="reg-pw-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
+
+          <div className="reg-field">
+            <label htmlFor="reg-password-confirm">Confirmar contraseña</label>
+            <div className="reg-pw-wrapper">
+              <input
+                id="reg-password-confirm"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite tu contraseña"
+                required
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="reg-pw-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showConfirmPassword ? '🙈' : '👁'}
+              </button>
+            </div>
+          </div>
+
+          {success ? (
+            <p className="reg-success" role="status">
+              {success}
+            </p>
+          ) : null}
 
           {error ? (
             <p className="reg-error" role="alert">
