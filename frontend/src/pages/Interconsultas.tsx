@@ -49,6 +49,7 @@ function Interconsultas() {
   const [idProfesional, setIdProfesional] = useState('')
   const [especialidad, setEspecialidad] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [busquedaPaciente, setBusquedaPaciente] = useState('')
 
   const esSolicitante = puedeSolicitarInterconsulta(rol)
   const esPaciente = rol === 'paciente'
@@ -177,6 +178,8 @@ function Interconsultas() {
     setIdPaciente('')
     setIdProfesional('')
     setEspecialidad('')
+    setBusquedaPaciente('')
+    setDoctores([])
     setShowForm(true)
   }
 
@@ -318,6 +321,12 @@ function Interconsultas() {
       String(i.especialidad ?? '').toLowerCase().includes(q) ||
       String(ESTADO_LABEL[i.estado] ?? '').toLowerCase().includes(q)
     )
+  })
+
+  const pacientesFiltrados = pacientes.filter((p) => {
+    if (!busquedaPaciente.trim()) return true
+    const q = busquedaPaciente.trim().toLowerCase()
+    return `${p.nombres} ${p.apellidos} ${p.rut}`.toLowerCase().includes(q)
   })
 
   const totalPaginas = Math.max(1, Math.ceil(listadoFiltrado.length / POR_PAGINA))
@@ -550,16 +559,35 @@ function Interconsultas() {
 
             <form className="dash-form" onSubmit={(e) => void handleCrear(e)}>
               <div className="dash-field">
+                <label htmlFor="ic-paciente-busqueda">Buscar paciente</label>
+                <input
+                  id="ic-paciente-busqueda"
+                  type="search"
+                  value={busquedaPaciente}
+                  onChange={(e) => {
+                    setBusquedaPaciente(e.target.value)
+                    setIdPaciente('')
+                  }}
+                  placeholder="Buscar por nombre o RUT…"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="dash-field">
                 <label htmlFor="ic-paciente">Paciente</label>
                 <select
                   id="ic-paciente"
                   value={idPaciente}
                   onChange={(e) => setIdPaciente(e.target.value)}
                   required
-                  disabled={saving || pacientes.length === 0}
+                  disabled={saving || pacientesFiltrados.length === 0}
                 >
-                  <option value="">Selecciona un paciente</option>
-                  {pacientes.map((p) => (
+                  <option value="">
+                    {pacientesFiltrados.length === 0
+                      ? 'No hay pacientes para la búsqueda'
+                      : 'Selecciona un paciente'}
+                  </option>
+                  {pacientesFiltrados.map((p) => (
                     <option key={p.id_paciente} value={String(p.id_paciente)}>
                       {p.nombres} {p.apellidos} - {p.rut}
                     </option>
