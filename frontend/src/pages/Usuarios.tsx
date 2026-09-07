@@ -49,6 +49,11 @@ function Usuarios() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editUsuario, setEditUsuario] = useState<UsuarioAdmin | null>(null)
+  const [editNombres, setEditNombres] = useState('')
+  const [editApellidos, setEditApellidos] = useState('')
+  const [editIdRol, setEditIdRol] = useState('')
 
   const loadRoles = useCallback(async () => {
     const { data, error } = await supabase
@@ -208,6 +213,62 @@ function Usuarios() {
     return NOMBRE_ROL[nombre as keyof typeof NOMBRE_ROL] ?? nombre ?? 'Sin rol'
   }
 
+  function openEdit(usuario: UsuarioAdmin) {
+    setError(null)
+    setSuccess(null)
+    setEditUsuario(usuario)
+    setEditNombres(usuario.nombres)
+    setEditApellidos(usuario.apellidos)
+    const rolActual = usuario.roles
+    const rolNombre = Array.isArray(rolActual)
+      ? rolActual[0]?.nombre_rol
+      : rolActual?.nombre_rol
+    const rol = roles.find((r) => r.nombre_rol === rolNombre)
+    setEditIdRol(rol ? String(rol.id_rol) : '')
+    setShowEdit(true)
+  }
+
+  function closeEdit() {
+    if (saving) return
+    setShowEdit(false)
+    setEditUsuario(null)
+  }
+
+  async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setSuccess(null)
+
+    if (!editUsuario) return
+    if (!editNombres.trim() || !editApellidos.trim() || !editIdRol) {
+      setError('Completa nombres, apellidos y rol.')
+      return
+    }
+
+    setSaving(true)
+
+    const { error: updateError } = await supabase
+      .from('usuarios')
+      .update({
+        nombres: editNombres.trim(),
+        apellidos: editApellidos.trim(),
+        id_rol: Number(editIdRol),
+      })
+      .eq('id_usuario', editUsuario.id_usuario)
+
+    setSaving(false)
+
+    if (updateError) {
+      setError(updateError.message || 'No se pudo actualizar el usuario.')
+      return
+    }
+
+    setSuccess('Usuario actualizado correctamente.')
+    setShowEdit(false)
+    setEditUsuario(null)
+    await loadUsuarios()
+  }
+
   return (
     <div className="dash">
       <Sidebar moduloActivo="usuarios" />
@@ -291,13 +352,22 @@ function Usuarios() {
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="dash-btn-secondary"
-                            onClick={() => void handleToggleActivo(usuario)}
-                          >
-                            {usuario.activo ? 'Desactivar' : 'Activar'}
-                          </button>
+                          <div className="usuario-acciones">
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => openEdit(usuario)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => void handleToggleActivo(usuario)}
+                            >
+                              {usuario.activo ? 'Desactivar' : 'Activar'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -499,6 +569,100 @@ function Usuarios() {
                   disabled={saving}
                 >
                   {saving ? 'Creando…' : 'Crear usuario'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showEdit && editUsuario ? (
+        <div
+          className="dash-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeEdit()
+          }}
+        >
+          <div
+            className="dash-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editar-usuario-title"
+          >
+            <div className="dash-modal-header">
+              <div>
+                <h3 id="editar-usuario-title">Editar usuario</h3>
+                <p>
+                  Actualiza el perfil y el rol de {editUsuario.email}. La ficha médica
+                  y el historial permanecen intactos.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="dash-modal-close"
+                onClick={closeEdit}
+                aria-label="Cerrar"
+                disabled={saving}
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="dash-form" onSubmit={(e) => void handleSaveEdit(e)}>
+              <div className="dash-field">
+                <label htmlFor="editar-usuario-nombres">Nombres</label>
+                <input
+                  id="editar-usuario-nombres"
+                  type="text"
+                  value={editNombres}
+                  onChange={(e) => setEditNombres(e.target.value)}
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="editar-usuario-apellidos">Apellidos</label>
+                <input
+                  id="editar-usuario-apellidos"
+                  type="text"
+                  value={editApellidos}
+                  onChange={(e) => setEditApellidos(e.target.value)}
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="editar-usuario-rol">Rol</label>
+                <select
+                  id="editar-usuario-rol"
+                  value={editIdRol}
+                  onChange={(e) => setEditIdRol(e.target.value)}
+                  required
+                  disabled={saving || roles.length === 0}
+                >
+                  <option value="">Selecciona un rol</option>
+                  {roles.map((r) => (
+                    <option key={r.id_rol} value={String(r.id_rol)}>
+                      {NOMBRE_ROL[r.nombre_rol as keyof typeof NOMBRE_ROL] ?? r.nombre_rol}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="dash-form-actions">
+                <button
+                  type="button"
+                  className="dash-btn-secondary"
+                  onClick={closeEdit}
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="dash-btn-primary" disabled={saving}>
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </div>
             </form>

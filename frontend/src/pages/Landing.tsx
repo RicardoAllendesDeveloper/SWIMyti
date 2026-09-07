@@ -18,14 +18,14 @@ const CARACTERISTICAS = [
       'Historiales clínicos que no pueden editarse ni eliminarse. Cualquier corrección se registra como enmienda auditada con firma digital.',
   },
   {
-    titulo: 'Toma de horas online',
+    titulo: 'Gestión de horas online',
     texto:
       'Reserva tus atenciones por especialidad y profesional, desde cualquier dispositivo, sin llamadas ni filas.',
   },
   {
     titulo: 'Portal del paciente',
     texto:
-      'Accede a tus citas, consultas previas, ficha médica y resultados de exámenes en un solo lugar.',
+      'Consulta tus citas, historial de atenciones e interconsultas en un solo lugar. Por seguridad, tu ficha médica se solicita presencialmente en el recinto.',
   },
   {
     titulo: 'Seguridad por diseño',
@@ -69,8 +69,8 @@ function Landing() {
             <h1>Tu salud, con la seguridad y trazabilidad que mereces</h1>
             <p className="land-hero-text">
               SWIMyti es el sistema web integral que digitaliza la gestión clínica:
-              fichas médicas inmutables, toma de horas online y acceso a tus
-              resultados en cualquier momento.
+              fichas médicas inmutables, gestión de horas online y trazabilidad
+              completa de cada atención.
             </p>
             <div className="land-hero-actions">
               <Link className="land-btn-solid" to="/registro">
@@ -84,7 +84,7 @@ function Landing() {
           <div className="land-hero-aside" aria-hidden="true">
             <div className="land-hero-card land-hero-card-1">Ficha médica inmutable</div>
             <div className="land-hero-card land-hero-card-2">Agenda tu hora online</div>
-            <div className="land-hero-card land-hero-card-3">Resultados de exámenes</div>
+            <div className="land-hero-card land-hero-card-3">Trazabilidad de cada atención</div>
           </div>
         </section>
 
@@ -125,7 +125,8 @@ function Landing() {
         <section className="land-cta">
           <h2>¿Eres paciente y quieres acceder a tu información?</h2>
           <p>
-            Crea tu cuenta en minutos y gestiona tus citas, fichas y exámenes online.
+            Crea tu cuenta en minutos y gestiona tus citas, interconsultas e historial
+            de atenciones online. Tu ficha médica se solicita presencialmente en el recinto.
           </p>
           <div className="land-hero-actions">
             <Link className="land-btn-solid" to="/registro">
@@ -144,6 +145,9 @@ function Landing() {
         </p>
         <p className="land-footer-muted">
           Proyecto de título · Ingeniería en Informática
+        </p>
+        <p className="land-footer-muted">
+          Contacto y soporte: soporte@swimyti.cl
         </p>
       </footer>
     </div>

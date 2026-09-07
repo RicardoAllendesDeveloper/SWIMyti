@@ -463,6 +463,33 @@
   margin-top: 0.35rem;
 }
 
+.pac-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.pac-filter-input {
+  flex: 1 1 260px;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: #fff;
+}
+
+.pac-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
 /* ----- Responsive ----- */
 @media (max-width: 900px) {
   .pac {

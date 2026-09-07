@@ -90,6 +90,11 @@ function Portal() {
   }, [loadData])
 
   async function cancelarCita(idCita: number) {
+    const confirmado = window.confirm(
+      '¿Está seguro/a que quiere cancelar su cita?',
+    )
+    if (!confirmado) return
+
     setError(null)
     setSuccess(null)
     setCancelando(idCita)

@@ -18,6 +18,12 @@
   color: #c0392b;
 }
 
+.usuario-acciones {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 .usu-pw-wrapper {
   position: relative;
   display: flex;

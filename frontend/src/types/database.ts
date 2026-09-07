@@ -13,6 +13,7 @@ export type UsuarioResumen = {
   nombres: string
   apellidos: string
   email?: string | null
+  roles?: { nombre_rol?: string } | { nombre_rol?: string }[] | null
 }
 
 export type FichaMedica = {

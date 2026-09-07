@@ -33,9 +33,19 @@ function labelCampo(campo: string): string {
   return CAMPOS_ENMIENDA.find((c) => c.value === campo)?.label ?? campo
 }
 
+function prefijoProfesional(usuario?: UsuarioResumen | null): string {
+  const rolVal = Array.isArray(usuario?.roles)
+    ? usuario?.roles?.[0]?.nombre_rol
+    : usuario?.roles?.nombre_rol
+  if (rolVal === 'doctor') return 'Dr(a). '
+  if (rolVal === 'enfermeria') return 'EU. '
+  return ''
+}
+
 function nombreUsuario(usuario?: UsuarioResumen | null, fallback?: string): string {
   if (usuario?.nombres || usuario?.apellidos) {
-    return `${usuario.nombres ?? ''} ${usuario.apellidos ?? ''}`.trim()
+    const nombre = `${usuario.nombres ?? ''} ${usuario.apellidos ?? ''}`.trim()
+    return `${prefijoProfesional(usuario)}${nombre}`.trim()
   }
   if (usuario?.email) return usuario.email
   return fallback ?? 'Usuario no disponible'
@@ -114,7 +124,7 @@ function DetalleFicha() {
           created_at,
           firma_digital_hash,
           pacientes ( nombres, apellidos, rut ),
-          usuarios:id_usuario_creador ( nombres, apellidos, email )
+          usuarios:id_usuario_creador ( nombres, apellidos, email, roles ( nombre_rol ) )
         `,
         )
         .eq('id_ficha', idFicha)
@@ -131,7 +141,7 @@ function DetalleFicha() {
           correccion_justificada,
           firma_digital_hash,
           created_at,
-          usuarios:id_usuario_autor ( nombres, apellidos, email )
+          usuarios:id_usuario_autor ( nombres, apellidos, email, roles ( nombre_rol ) )
         `,
         )
         .eq('id_ficha', idFicha)
@@ -180,6 +190,7 @@ function DetalleFicha() {
             nombres: creador.nombres as string,
             apellidos: creador.apellidos as string,
             email: (creador.email as string | null) ?? null,
+            roles: asSingleRelation(creador.roles) ?? null,
           }
         : null,
     })
@@ -204,6 +215,7 @@ function DetalleFicha() {
                 nombres: autor.nombres as string,
                 apellidos: autor.apellidos as string,
                 email: (autor.email as string | null) ?? null,
+                roles: asSingleRelation(autor.roles) ?? null,
               }
             : null,
         } satisfies EnmiendaAuditoria
@@ -290,7 +302,7 @@ function DetalleFicha() {
         return
       }
 
-      setSuccess('Enmienda registrada. La ficha original permanece intacta (append-only).')
+      setSuccess('Enmienda registrada. La ficha original permanece intacta.')
       setShowForm(false)
       setCorreccion('')
       await loadData()
@@ -363,7 +375,7 @@ function DetalleFicha() {
             <p className="df-notice">
               Esta ficha está en modo solo lectura. El diagnóstico y el resto de campos
               originales no se editan; cualquier corrección se agrega como enmienda de
-              auditoría (append-only).
+              auditoría firmada digitalmente.
             </p>
 
             <section className="df-card" aria-labelledby="ficha-original-title">

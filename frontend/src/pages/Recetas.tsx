@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import { puedeEnmendar } from '../utils/permisos'
 import type { Paciente } from '../types/database'
 import '../styles/Recetas.css'
 
@@ -58,7 +57,7 @@ async function buildFirmaHash(userId: string): Promise<string> {
 
 function Recetas() {
   const { rol } = useAuthRol()
-  const puedeEmitir = puedeEnmendar(rol)
+  const puedeEmitir = rol === 'doctor'
 
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
@@ -71,6 +70,10 @@ function Recetas() {
   const [userId, setUserId] = useState('')
   const [tab, setTab] = useState<'recetas' | 'certificados'>('recetas')
   const [showForm, setShowForm] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [detalle, setDetalle] = useState<Receta | Certificado | null>(null)
+  const POR_PAGINA = 10
 
   // Receta
   const [rPaciente, setRPaciente] = useState('')
@@ -242,6 +245,34 @@ function Recetas() {
     await loadData()
   }
 
+  const filtrarReceta = (r: Receta): boolean => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    return `${r.medicamentos} ${r.indicaciones ?? ''} ${r.pacientes?.nombres ?? ''} ${r.pacientes?.apellidos ?? ''} ${r.pacientes?.rut ?? ''}`
+      .toLowerCase()
+      .includes(q)
+  }
+
+  const filtrarCertificado = (c: Certificado): boolean => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    return `${c.tipo_certificado} ${c.detalle ?? ''} ${c.pacientes?.nombres ?? ''} ${c.pacientes?.apellidos ?? ''} ${c.pacientes?.rut ?? ''}`
+      .toLowerCase()
+      .includes(q)
+  }
+
+  const recetasFiltradas = recetas.filter(filtrarReceta)
+  const certificadosFiltrados = certificados.filter(filtrarCertificado)
+
+  const listaActiva =
+    tab === 'recetas' ? recetasFiltradas : certificadosFiltrados
+  const totalPaginas = Math.max(1, Math.ceil(listaActiva.length / POR_PAGINA))
+  const paginaSegura = Math.min(pagina, totalPaginas)
+  const listaPagina = listaActiva.slice(
+    (paginaSegura - 1) * POR_PAGINA,
+    paginaSegura * POR_PAGINA,
+  )
+
   return (
     <div className="dash">
       <Sidebar moduloActivo="recetas" />
@@ -258,7 +289,7 @@ function Recetas() {
               className="dash-btn-primary"
               onClick={openForm}
             >
-              Nuevo documento
+              {tab === 'recetas' ? 'Nueva receta' : 'Nuevo certificado'}
             </button>
           ) : null}
         </header>
@@ -317,86 +348,130 @@ function Recetas() {
 
             {loading ? (
               <p className="dash-loading">Cargando…</p>
-            ) : tab === 'recetas' ? (
-              recetas.length === 0 ? (
-                <p className="dash-empty">
-                  No hay recetas registradas. Usa “Nuevo documento” para emitir la primera.
-                </p>
-              ) : (
-                <div className="dash-table-wrap">
-                  <table className="dash-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Paciente</th>
-                        <th>Medicamentos</th>
-                        <th>Indicaciones</th>
-                        <th>Emisión</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recetas.map((r) => (
-                        <tr key={r.id_receta}>
-                          <td>#{r.id_receta}</td>
-                          <td>
-                            <div>
-                              {r.pacientes
-                                ? `${r.pacientes.nombres} ${r.pacientes.apellidos}`
-                                : `Paciente #${r.id_paciente}`}
-                            </div>
-                            {r.pacientes?.rut ? (
-                              <div className="dash-muted">RUT {r.pacientes.rut}</div>
-                            ) : null}
-                          </td>
-                          <td>{r.medicamentos}</td>
-                          <td>{r.indicaciones || '—'}</td>
-                          <td>{formatFecha(r.fecha_emision)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            ) : certificados.length === 0 ? (
-              <p className="dash-empty">
-                No hay certificados registrados. Usa “Nuevo documento” para emitir el primero.
-              </p>
             ) : (
-              <div className="dash-table-wrap">
-                <table className="dash-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Paciente</th>
-                      <th>Tipo</th>
-                      <th>Detalle</th>
-                      <th>Emisión</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {certificados.map((c) => (
-                      <tr key={c.id_certificado}>
-                        <td>#{c.id_certificado}</td>
-                        <td>
-                          <div>
-                            {c.pacientes
-                              ? `${c.pacientes.nombres} ${c.pacientes.apellidos}`
-                              : `Paciente #${c.id_paciente}`}
-                          </div>
-                          {c.pacientes?.rut ? (
-                            <div className="dash-muted">RUT {c.pacientes.rut}</div>
-                          ) : null}
-                        </td>
-                        <td>
-                          <span className="recetas-chip">{c.tipo_certificado}</span>
-                        </td>
-                        <td>{c.detalle || '—'}</td>
-                        <td>{formatFecha(c.fecha_emision)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="dash-filter-bar">
+                  <input
+                    className="dash-filter-input"
+                    type="search"
+                    placeholder={
+                      tab === 'recetas'
+                        ? 'Buscar por paciente, RUT, medicamento o indicación…'
+                        : 'Buscar por paciente, RUT, tipo o detalle…'
+                    }
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value)
+                      setPagina(1)
+                    }}
+                  />
+                  <span className="dash-muted">
+                    {listaActiva.length} resultado
+                    {listaActiva.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {listaActiva.length === 0 ? (
+                  <p className="dash-empty">
+                    {tab === 'recetas'
+                      ? 'No hay recetas que coincidan con la búsqueda.'
+                      : 'No hay certificados que coincidan con la búsqueda.'}
+                  </p>
+                ) : (
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Paciente</th>
+                          <th>{tab === 'recetas' ? 'Medicamentos' : 'Tipo'}</th>
+                          <th>{tab === 'recetas' ? 'Indicaciones' : 'Detalle'}</th>
+                          <th>Emisión</th>
+                          <th>Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listaPagina.map((item) => {
+                          const esReceta = 'medicamentos' in item
+                          const paciente = item.pacientes
+                          return (
+                            <tr
+                              key={
+                                esReceta
+                                  ? (item as Receta).id_receta
+                                  : (item as Certificado).id_certificado
+                              }
+                            >
+                              <td>
+                                #
+                                {esReceta
+                                  ? (item as Receta).id_receta
+                                  : (item as Certificado).id_certificado}
+                              </td>
+                              <td>
+                                <div>
+                                  {paciente
+                                    ? `${paciente.nombres} ${paciente.apellidos}`
+                                    : 'Paciente #'}
+                                </div>
+                                {paciente?.rut ? (
+                                  <div className="dash-muted">RUT {paciente.rut}</div>
+                                ) : null}
+                              </td>
+                              <td>
+                                {esReceta ? (
+                                  (item as Receta).medicamentos
+                                ) : (
+                                  <span className="recetas-chip">
+                                    {(item as Certificado).tipo_certificado}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {esReceta
+                                  ? (item as Receta).indicaciones || '—'
+                                  : (item as Certificado).detalle || '—'}
+                              </td>
+                              <td>{formatFecha(item.fecha_emision)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="dash-btn-secondary"
+                                  onClick={() => setDetalle(item)}
+                                >
+                                  Ver detalle
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {totalPaginas > 1 ? (
+                      <div className="dash-pagination">
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura <= 1}
+                          onClick={() => setPagina(paginaSegura - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span className="dash-muted">
+                          Página {paginaSegura} de {totalPaginas}
+                        </span>
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura >= totalPaginas}
+                          onClick={() => setPagina(paginaSegura + 1)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -526,10 +601,100 @@ function Recetas() {
                   Cancelar
                 </button>
                 <button type="submit" className="dash-btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Guardar documento'}
+                  {saving
+                    ? 'Guardando…'
+                    : tab === 'recetas'
+                      ? 'Guardar receta'
+                      : 'Guardar certificado'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {detalle ? (
+        <div
+          className="dash-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDetalle(null)
+          }}
+        >
+          <div
+            className="dash-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detalle-doc-title"
+          >
+            <div className="dash-modal-header">
+              <div>
+                <h3 id="detalle-doc-title">
+                  {'medicamentos' in detalle ? 'Detalle de receta' : 'Detalle de certificado'}
+                </h3>
+                <p>
+                  {'medicamentos' in detalle
+                    ? `Receta médica #${(detalle as Receta).id_receta}`
+                    : `Certificado #${(detalle as Certificado).id_certificado}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="dash-modal-close"
+                onClick={() => setDetalle(null)}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="dash-form">
+              <div className="dash-field">
+                <label>Paciente</label>
+                <p className="dash-readonly">
+                  {detalle.pacientes
+                    ? `${detalle.pacientes.nombres} ${detalle.pacientes.apellidos} · RUT ${detalle.pacientes.rut}`
+                    : `Paciente #${detalle.id_paciente}`}
+                </p>
+              </div>
+
+              {'medicamentos' in detalle ? (
+                <>
+                  <div className="dash-field">
+                    <label>Medicamentos</label>
+                    <p className="dash-readonly">{(detalle as Receta).medicamentos}</p>
+                  </div>
+                  <div className="dash-field">
+                    <label>Indicaciones</label>
+                    <p className="dash-readonly">
+                      {(detalle as Receta).indicaciones || '—'}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="dash-field">
+                    <label>Tipo de certificado</label>
+                    <p className="dash-readonly">
+                      <span className="recetas-chip">
+                        {(detalle as Certificado).tipo_certificado}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="dash-field">
+                    <label>Detalle</label>
+                    <p className="dash-readonly">
+                      {(detalle as Certificado).detalle || '—'}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="dash-field">
+                <label>Fecha de emisión</label>
+                <p className="dash-readonly">{formatFecha(detalle.fecha_emision)}</p>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
