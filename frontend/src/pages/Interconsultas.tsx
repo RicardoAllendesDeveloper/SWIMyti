@@ -40,6 +40,9 @@ function Interconsultas() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 10
 
   const [idPaciente, setIdPaciente] = useState('')
   const [idProfesional, setIdProfesional] = useState('')
@@ -107,7 +110,12 @@ function Interconsultas() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (user) query = query.eq('id_profesional', user.id)
+      if (user) {
+        // El doctor ve sus propias + las pendientes sin asignar (para tomarlas)
+        query = query.or(
+          `id_profesional.eq.${user.id},and(id_profesional.is.null,estado.eq.pendiente)`,
+        )
+      }
     }
 
     const { data, error } = await query
@@ -212,6 +220,37 @@ function Interconsultas() {
     await loadData()
   }
 
+  async function tomarInterconsulta(id: number) {
+    setError(null)
+    setSuccess(null)
+    setSaving(true)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setSaving(false)
+      setError('Sesión no válida.')
+      return
+    }
+
+    const { error } = await supabase
+      .from('interconsultas')
+      .update({ id_profesional: user.id, estado: 'confirmada' })
+      .eq('id_interconsulta', id)
+      .eq('estado', 'pendiente')
+      .is('id_profesional', null)
+
+    setSaving(false)
+
+    if (error) {
+      setError(error.message || 'No se pudo tomar la interconsulta.')
+      return
+    }
+    setSuccess('Interconsulta tomada. Ahora debes atenderla.')
+    await loadData()
+  }
+
   function nombrePaciente(i: Interconsulta): string {
     const p = i.pacientes
     if (p) return `${p.apellidos}, ${p.nombres}`
@@ -223,6 +262,26 @@ function Interconsultas() {
     if (x && (x.nombres || x.apellidos)) return `${x.nombres ?? ''} ${x.apellidos ?? ''}`.trim()
     return '—'
   }
+
+  const listadoFiltrado = listado.filter((i) => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    const p = i.pacientes
+    const pac = p ? `${p.nombres} ${p.apellidos} ${p.rut}`.toLowerCase() : ''
+    return (
+      pac.includes(q) ||
+      String(i.motivo).toLowerCase().includes(q) ||
+      String(i.especialidad ?? '').toLowerCase().includes(q) ||
+      String(ESTADO_LABEL[i.estado] ?? '').toLowerCase().includes(q)
+    )
+  })
+
+  const totalPaginas = Math.max(1, Math.ceil(listadoFiltrado.length / POR_PAGINA))
+  const paginaSegura = Math.min(pagina, totalPaginas)
+  const listadoPagina = listadoFiltrado.slice(
+    (paginaSegura - 1) * POR_PAGINA,
+    paginaSegura * POR_PAGINA,
+  )
 
   return (
     <div className="dash">
@@ -236,7 +295,7 @@ function Interconsultas() {
               {esPaciente
                 ? 'Confirma o rechaza tus interconsultas'
                 : rol === 'doctor'
-                  ? 'Interconsultas dirigidas a tu especialidad'
+                  ? 'Toma interconsultas pendientes y atiende las confirmadas'
                   : 'Gestión de solicitudes de interconsulta'}
             </p>
           </div>
@@ -274,85 +333,139 @@ function Interconsultas() {
 
             {loading ? (
               <p className="dash-loading">Cargando interconsultas…</p>
-            ) : listado.length === 0 ? (
-              <p className="dash-empty">No hay interconsultas registradas.</p>
             ) : (
-              <div className="dash-table-wrap">
-                <table className="dash-table">
-                  <thead>
-                    <tr>
-                      <th>Paciente</th>
-                      <th>Motivo</th>
-                      <th>Especialidad</th>
-                      <th>Doctor</th>
-                      <th>Estado</th>
-                      <th>Fecha</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {listado.map((i) => (
-                      <tr key={i.id_interconsulta}>
-                        <td>{nombrePaciente(i)}</td>
-                        <td>{i.motivo}</td>
-                        <td>{i.especialidad ?? '—'}</td>
-                        <td>{i.id_profesional ? nombreDe(i.profesional) : '—'}</td>
-                        <td>
-                          <span className="dash-badge">{ESTADO_LABEL[i.estado] ?? i.estado}</span>
-                        </td>
-                        <td>{formatFecha(i.created_at)}</td>
-                        <td>
-                          {esPaciente && i.estado === 'pendiente' ? (
-                            <div className="ic-acciones">
-                              <button
-                                type="button"
-                                className="dash-btn-primary"
-                                onClick={() => void cambiarEstado(i.id_interconsulta, 'confirmada')}
-                              >
-                                Confirmar
-                              </button>
-                              <button
-                                type="button"
-                                className="dash-btn-secondary"
-                                onClick={() => void cambiarEstado(i.id_interconsulta, 'rechazada')}
-                              >
-                                Rechazar
-                              </button>
-                            </div>
-                          ) : rol === 'doctor' && i.estado === 'confirmada' ? (
-                            <button
-                              type="button"
-                              className="dash-btn-primary"
-                              onClick={() => void cambiarEstado(i.id_interconsulta, 'atendida')}
-                            >
-                              Atender
-                            </button>
-                          ) : rol === 'administrador' && i.estado === 'pendiente' ? (
-                            <div className="ic-acciones">
-                              <button
-                                type="button"
-                                className="dash-btn-primary"
-                                onClick={() => void cambiarEstado(i.id_interconsulta, 'confirmada')}
-                              >
-                                Confirmar
-                              </button>
-                              <button
-                                type="button"
-                                className="dash-btn-secondary"
-                                onClick={() => void cambiarEstado(i.id_interconsulta, 'cancelada')}
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="dash-filter-bar">
+                  <input
+                    className="dash-filter-input"
+                    type="search"
+                    placeholder="Buscar por paciente, RUT, motivo, especialidad o estado…"
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value)
+                      setPagina(1)
+                    }}
+                  />
+                  <span className="dash-muted">
+                    {listadoFiltrado.length} resultado
+                    {listadoFiltrado.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {listadoFiltrado.length === 0 ? (
+                  <p className="dash-empty">
+                    No hay interconsultas que coincidan con la búsqueda.
+                  </p>
+                ) : (
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead>
+                        <tr>
+                          <th>Paciente</th>
+                          <th>Motivo</th>
+                          <th>Especialidad</th>
+                          <th>Doctor</th>
+                          <th>Estado</th>
+                          <th>Fecha</th>
+                          <th>Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listadoPagina.map((i) => (
+                          <tr key={i.id_interconsulta}>
+                            <td>{nombrePaciente(i)}</td>
+                            <td>{i.motivo}</td>
+                            <td>{i.especialidad ?? '—'}</td>
+                            <td>{i.id_profesional ? nombreDe(i.profesional) : '—'}</td>
+                            <td>
+                              <span className="dash-badge">{ESTADO_LABEL[i.estado] ?? i.estado}</span>
+                            </td>
+                            <td>{formatFecha(i.created_at)}</td>
+                            <td>
+                              {esPaciente && i.estado === 'pendiente' ? (
+                                <div className="ic-acciones">
+                                  <button
+                                    type="button"
+                                    className="dash-btn-primary"
+                                    onClick={() => void cambiarEstado(i.id_interconsulta, 'confirmada')}
+                                  >
+                                    Confirmar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary"
+                                    onClick={() => void cambiarEstado(i.id_interconsulta, 'rechazada')}
+                                  >
+                                    Rechazar
+                                  </button>
+                                </div>
+                              ) : rol === 'doctor' && i.estado === 'pendiente' && !i.id_profesional ? (
+                                <button
+                                  type="button"
+                                  className="dash-btn-primary"
+                                  onClick={() => void tomarInterconsulta(i.id_interconsulta)}
+                                  disabled={saving}
+                                >
+                                  Tomar
+                                </button>
+                              ) : rol === 'doctor' && i.estado === 'confirmada' ? (
+                                <button
+                                  type="button"
+                                  className="dash-btn-primary"
+                                  onClick={() => void cambiarEstado(i.id_interconsulta, 'atendida')}
+                                >
+                                  Atender
+                                </button>
+                              ) : rol === 'administrador' && i.estado === 'pendiente' ? (
+                                <div className="ic-acciones">
+                                  <button
+                                    type="button"
+                                    className="dash-btn-primary"
+                                    onClick={() => void cambiarEstado(i.id_interconsulta, 'confirmada')}
+                                  >
+                                    Confirmar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary"
+                                    onClick={() => void cambiarEstado(i.id_interconsulta, 'cancelada')}
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {totalPaginas > 1 ? (
+                      <div className="dash-pagination">
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura <= 1}
+                          onClick={() => setPagina(paginaSegura - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span className="dash-muted">
+                          Página {paginaSegura} de {totalPaginas}
+                        </span>
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura >= totalPaginas}
+                          onClick={() => setPagina(paginaSegura + 1)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

@@ -38,7 +38,7 @@ function App() {
           path="/pacientes"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria', 'administrativo', 'unidad_apoyo']}>
+              <RoleRoute roles={['administrador', 'enfermeria', 'administrativo', 'unidad_apoyo']}>
                 <Pacientes />
               </RoleRoute>
             </ProtectedRoute>

@@ -33,24 +33,34 @@ function asSingle<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value
 }
 
+function claveDia(value: string): string {
+  const d = new Date(value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+type AtencionAgenda = {
+  id_cita: number
+  id_horario: number
+  id_paciente: number
+  fecha_inicio: string
+  paciente_nombre: string
+  rut: string
+  especialidad: string
+  motivo: string | null
+  estado: string
+}
+
+type TabAtenciones = 'actuales' | 'anteriores' | 'proximas'
+
 function Disponibilidad() {
   const navigate = useNavigate()
   const { rol } = useAuthRol()
 
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [horarios, setHorarios] = useState<HorarioDisponible[]>([])
-  const [agenda, setAgenda] = useState<
-    {
-      id_cita: number
-      id_horario: number
-      id_paciente: number
-      fecha_inicio: string
-      paciente_nombre: string
-      rut: string
-      especialidad: string
-      motivo: string | null
-    }[]
-  >([])
+  const [agenda, setAgenda] = useState<AtencionAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +69,11 @@ function Disponibilidad() {
   const [especialidad, setEspecialidad] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
+
+  const [tabAtenciones, setTabAtenciones] = useState<TabAtenciones>('actuales')
+  const [busquedaBloques, setBusquedaBloques] = useState('')
+  const [paginaBloques, setPaginaBloques] = useState(1)
+  const POR_PAGINA = 10
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -108,7 +123,7 @@ function Disponibilidad() {
       setHorarios((horRes.data ?? []) as unknown as HorarioDisponible[])
     }
 
-    // Agenda de atenciones: citas activas del doctor (o todas para admin)
+    // Agenda de atenciones: todas las citas del doctor (o todas para admin)
     if (user) {
       let agQuery = supabase
         .from('citas')
@@ -118,6 +133,7 @@ function Disponibilidad() {
           id_horario,
           id_paciente,
           motivo,
+          estado,
           horarios_disponibles (
             id_profesional,
             fecha_inicio,
@@ -126,7 +142,6 @@ function Disponibilidad() {
           pacientes ( nombres, apellidos, rut )
         `,
         )
-        .eq('estado', 'reservada')
         .order('created_at', { ascending: true })
 
       if (rol === 'doctor') {
@@ -143,13 +158,14 @@ function Disponibilidad() {
             id_cita: r.id_cita as number,
             id_horario: r.id_horario as number,
             id_paciente: r.id_paciente as number,
-            fecha_inicio: h?.fecha_inicio as string,
+            fecha_inicio: (h?.fecha_inicio as string) ?? '',
             paciente_nombre: pac
               ? `${pac.apellidos ?? ''}, ${pac.nombres ?? ''}`.trim()
               : `Paciente #${r.id_paciente}`,
             rut: (pac?.rut as string) ?? '',
             especialidad: (esp?.nombre as string) ?? 'Sin especialidad',
             motivo: (r.motivo as string | null) ?? null,
+            estado: (r.estado as string) ?? 'reservada',
           }
         })
         setAgenda(rows)
@@ -230,9 +246,109 @@ function Disponibilidad() {
     await loadData()
   }
 
+  async function verFichaPaciente(idPaciente: number) {
+    setError(null)
+    const res = await supabase
+      .from('fichas_medicas')
+      .select('id_ficha')
+      .eq('id_paciente', idPaciente)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (res.error || !res.data) {
+      setError(
+        'Este paciente no tiene atenciones registradas o no tienes permisos para verlas.',
+      )
+      return
+    }
+    navigate(`/ficha/${res.data.id_ficha}`)
+  }
+
+  async function cambiarEstadoAtencion(idCita: number, nuevoEstado: string) {
+    setError(null)
+    setSuccess(null)
+
+    const { error } = await supabase
+      .from('citas')
+      .update({ estado: nuevoEstado })
+      .eq('id_cita', idCita)
+
+    if (error) {
+      setError(error.message || 'No se pudo actualizar la atención.')
+      return
+    }
+    setSuccess(
+      nuevoEstado === 'completada'
+        ? 'Atención marcada como realizada.'
+        : 'Atención cancelada.',
+    )
+    await loadData()
+  }
+
   function nombreEspecialidad(h: HorarioDisponible): string {
     const e = asSingle(h.especialidades)
     return e?.nombre ?? 'Sin especialidad'
+  }
+
+  // Clasificación de atenciones por día
+  const hoy = claveDia(new Date().toISOString())
+  const atencionesActuales = agenda.filter(
+    (a) => a.fecha_inicio && claveDia(a.fecha_inicio) === hoy,
+  )
+  const atencionesAnteriores = agenda.filter(
+    (a) => a.fecha_inicio && claveDia(a.fecha_inicio) < hoy,
+  )
+  const atencionesProximas = agenda.filter(
+    (a) => a.fecha_inicio && claveDia(a.fecha_inicio) > hoy,
+  )
+
+  const listaTab: Record<TabAtenciones, AtencionAgenda[]> = {
+    actuales: atencionesActuales,
+    anteriores: atencionesAnteriores,
+    proximas: atencionesProximas,
+  }
+
+  const [paginaAtenciones, setPaginaAtenciones] = useState(1)
+  const listaTabActual = listaTab[tabAtenciones]
+  const totalPaginasAtenciones = Math.max(
+    1,
+    Math.ceil(listaTabActual.length / POR_PAGINA),
+  )
+  const paginaSeguraAtenciones = Math.min(
+    paginaAtenciones,
+    totalPaginasAtenciones,
+  )
+  const atencionesPagina = listaTabActual.slice(
+    (paginaSeguraAtenciones - 1) * POR_PAGINA,
+    paginaSeguraAtenciones * POR_PAGINA,
+  )
+
+  // Filtro + paginación de bloques publicados
+  const horariosFiltrados = horarios.filter((h) => {
+    if (!busquedaBloques.trim()) return true
+    const q = busquedaBloques.trim().toLowerCase()
+    return (
+      formatFechaHora(h.fecha_inicio).toLowerCase().includes(q) ||
+      nombreEspecialidad(h).toLowerCase().includes(q) ||
+      h.estado.toLowerCase().includes(q)
+    )
+  })
+  const totalPaginasBloques = Math.max(
+    1,
+    Math.ceil(horariosFiltrados.length / POR_PAGINA),
+  )
+  const paginaSeguraBloques = Math.min(paginaBloques, totalPaginasBloques)
+  const horariosPagina = horariosFiltrados.slice(
+    (paginaSeguraBloques - 1) * POR_PAGINA,
+    paginaSeguraBloques * POR_PAGINA,
+  )
+
+  const ESTADO_LABEL: Record<string, string> = {
+    disponible: 'Disponible',
+    reservada: 'Reservada',
+    cancelada: 'Cancelada',
+    completada: 'Completada',
   }
 
   return (
@@ -242,8 +358,8 @@ function Disponibilidad() {
       <div className="dash-main">
         <header className="dash-topbar">
           <div>
-            <h2>Disponibilidad de horas</h2>
-            <p>Publica bloques de atención para la toma de horas</p>
+            <h2>Agenda</h2>
+            <p>Publica tu disponibilidad y gestiona tus atenciones</p>
           </div>
         </header>
 
@@ -262,19 +378,57 @@ function Disponibilidad() {
           <div className="dash-card">
             <div className="dash-card-header">
               <div>
-                <h3>Agenda de atenciones</h3>
+                <h3>Atenciones</h3>
                 <p className="dash-muted">
-                  Pacientes que tienes agendados para atender
+                  Consultas y procedimientos agendados para ti
                 </p>
               </div>
-              <span className="dash-badge">{agenda.length}</span>
+            </div>
+
+            <div className="agenda-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tabAtenciones === 'actuales'}
+                className={`agenda-tab${tabAtenciones === 'actuales' ? ' is-active' : ''}`}
+                onClick={() => {
+                  setTabAtenciones('actuales')
+                  setPaginaAtenciones(1)
+                }}
+              >
+                Actuales ({atencionesActuales.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tabAtenciones === 'anteriores'}
+                className={`agenda-tab${tabAtenciones === 'anteriores' ? ' is-active' : ''}`}
+                onClick={() => {
+                  setTabAtenciones('anteriores')
+                  setPaginaAtenciones(1)
+                }}
+              >
+                Anteriores ({atencionesAnteriores.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tabAtenciones === 'proximas'}
+                className={`agenda-tab${tabAtenciones === 'proximas' ? ' is-active' : ''}`}
+                onClick={() => {
+                  setTabAtenciones('proximas')
+                  setPaginaAtenciones(1)
+                }}
+              >
+                Próximas ({atencionesProximas.length})
+              </button>
             </div>
 
             {loading ? (
-              <p className="dash-loading">Cargando agenda…</p>
-            ) : agenda.length === 0 ? (
+              <p className="dash-loading">Cargando atenciones…</p>
+            ) : listaTabActual.length === 0 ? (
               <p className="dash-empty">
-                No tienes citas agendadas por atender.
+                No hay atenciones en esta categoría.
               </p>
             ) : (
               <div className="dash-table-wrap">
@@ -286,11 +440,12 @@ function Disponibilidad() {
                       <th>RUT</th>
                       <th>Especialidad</th>
                       <th>Motivo</th>
+                      <th>Estado</th>
                       <th>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {agenda.map((a) => (
+                    {atencionesPagina.map((a) => (
                       <tr key={a.id_cita}>
                         <td>{formatFechaCorta(a.fecha_inicio)}</td>
                         <td>{a.paciente_nombre}</td>
@@ -298,19 +453,72 @@ function Disponibilidad() {
                         <td>{a.especialidad}</td>
                         <td>{a.motivo ?? '—'}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="dash-btn-secondary"
-                            onClick={() => navigate(`/pacientes`)}
-                            title="Ver detalle del paciente"
-                          >
-                            Ver paciente
-                          </button>
+                          <span className="dash-badge">
+                            {ESTADO_LABEL[a.estado] ?? a.estado}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="agenda-acciones">
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => void verFichaPaciente(a.id_paciente)}
+                              title="Ver la ficha del paciente"
+                            >
+                              Ver ficha
+                            </button>
+                            {tabAtenciones !== 'anteriores' &&
+                            a.estado === 'reservada' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="dash-btn-primary"
+                                  onClick={() =>
+                                    void cambiarEstadoAtencion(a.id_cita, 'completada')
+                                  }
+                                >
+                                  Realizada
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dash-btn-danger"
+                                  onClick={() =>
+                                    void cambiarEstadoAtencion(a.id_cita, 'cancelada')
+                                  }
+                                >
+                                  No asistió
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {totalPaginasAtenciones > 1 ? (
+                  <div className="dash-pagination">
+                    <button
+                      type="button"
+                      className="dash-btn-secondary"
+                      disabled={paginaSeguraAtenciones <= 1}
+                      onClick={() => setPaginaAtenciones(paginaSeguraAtenciones - 1)}
+                    >
+                      Anterior
+                    </button>
+                    <span className="dash-muted">
+                      Página {paginaSeguraAtenciones} de {totalPaginasAtenciones}
+                    </span>
+                    <button
+                      type="button"
+                      className="dash-btn-secondary"
+                      disabled={paginaSeguraAtenciones >= totalPaginasAtenciones}
+                      onClick={() => setPaginaAtenciones(paginaSeguraAtenciones + 1)}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -390,53 +598,98 @@ function Disponibilidad() {
 
             {loading ? (
               <p className="dash-loading">Cargando bloques…</p>
-            ) : horarios.length === 0 ? (
-              <p className="dash-empty">No hay bloques publicados todavía.</p>
             ) : (
-              <div className="dash-table-wrap">
-                <table className="dash-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Profesional</th>
-                      <th>Especialidad</th>
-                      <th>Estado</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {horarios.map((h) => {
-                      const u = asSingle(h.usuarios)
-                      const nombreProf = u
-                        ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
-                        : 'Profesional'
-                      return (
-                        <tr key={h.id_horario}>
-                          <td>{formatFechaHora(h.fecha_inicio)}</td>
-                          <td>{nombreProf}</td>
-                          <td>{nombreEspecialidad(h)}</td>
-                          <td>
-                            <span className="dash-badge">{h.estado}</span>
-                          </td>
-                          <td>
-                            {h.estado === 'disponible' ? (
-                              <button
-                                type="button"
-                                className="dash-btn-secondary"
-                                onClick={() => void cancelarBloque(h.id_horario)}
-                              >
-                                Cancelar
-                              </button>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
+              <>
+                <div className="dash-filter-bar">
+                  <input
+                    className="dash-filter-input"
+                    type="search"
+                    placeholder="Buscar por fecha, especialidad o estado…"
+                    value={busquedaBloques}
+                    onChange={(e) => {
+                      setBusquedaBloques(e.target.value)
+                      setPaginaBloques(1)
+                    }}
+                  />
+                  <span className="dash-muted">
+                    {horariosFiltrados.length} resultado
+                    {horariosFiltrados.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {horariosFiltrados.length === 0 ? (
+                  <p className="dash-empty">No hay bloques que coincidan.</p>
+                ) : (
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Profesional</th>
+                          <th>Especialidad</th>
+                          <th>Estado</th>
+                          <th>Acción</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {horariosPagina.map((h) => {
+                          const u = asSingle(h.usuarios)
+                          const nombreProf = u
+                            ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
+                            : 'Profesional'
+                          return (
+                            <tr key={h.id_horario}>
+                              <td>{formatFechaHora(h.fecha_inicio)}</td>
+                              <td>{nombreProf}</td>
+                              <td>{nombreEspecialidad(h)}</td>
+                              <td>
+                                <span className="dash-badge">
+                                  {ESTADO_LABEL[h.estado] ?? h.estado}
+                                </span>
+                              </td>
+                              <td>
+                                {h.estado === 'disponible' ? (
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary"
+                                    onClick={() => void cancelarBloque(h.id_horario)}
+                                  >
+                                    Cancelar
+                                  </button>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {totalPaginasBloques > 1 ? (
+                      <div className="dash-pagination">
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSeguraBloques <= 1}
+                          onClick={() => setPaginaBloques(paginaSeguraBloques - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span className="dash-muted">
+                          Página {paginaSeguraBloques} de {totalPaginasBloques}
+                        </span>
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSeguraBloques >= totalPaginasBloques}
+                          onClick={() => setPaginaBloques(paginaSeguraBloques + 1)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

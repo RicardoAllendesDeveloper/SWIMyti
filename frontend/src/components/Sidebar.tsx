@@ -13,7 +13,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
   { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas', roles: ['*'] },
   { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard', roles: ['*'] },
   { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes', roles: ['*'] },
-  { modulo: 'disponibilidad', label: 'Disponibilidad', ruta: '/disponibilidad', roles: ['administrador', 'doctor'] },
+  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad', roles: ['administrador', 'doctor'] },
   { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas', roles: ['*'] },
   { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos', roles: ['administrador', 'administrativo'] },
   { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas', roles: ['administrador', 'administrativo'] },
