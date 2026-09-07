@@ -245,6 +245,46 @@ function Recetas() {
     await loadData()
   }
 
+  async function handleDelete(item: Receta | Certificado) {
+    const esReceta = 'medicamentos' in item
+    const confirmado = window.confirm(
+      esReceta
+        ? `¿Eliminar la receta #${(item as Receta).id_receta}? Esta acción no se puede deshacer.`
+        : `¿Eliminar el certificado #${(item as Certificado).id_certificado}? Esta acción no se puede deshacer.`,
+    )
+    if (!confirmado) return
+
+    setError(null)
+    setSuccess(null)
+    setSaving(true)
+
+    const tabla = esReceta ? 'recetas_medicas' : 'certificados_clinicos'
+    const idCol = esReceta ? 'id_receta' : 'id_certificado'
+    const idVal = esReceta
+      ? (item as Receta).id_receta
+      : (item as Certificado).id_certificado
+
+    const { error: delError } = await supabase
+      .from(tabla)
+      .delete()
+      .eq(idCol, idVal)
+
+    setSaving(false)
+
+    if (delError) {
+      setError(
+        delError.message ||
+          'No se pudo eliminar el documento. Solo puedes eliminar los que emitiste tú.',
+      )
+      return
+    }
+
+    setSuccess(
+      esReceta ? 'Receta eliminada correctamente.' : 'Certificado eliminado correctamente.',
+    )
+    await loadData()
+  }
+
   const filtrarReceta = (r: Receta): boolean => {
     if (!busqueda.trim()) return true
     const q = busqueda.trim().toLowerCase()
@@ -433,13 +473,25 @@ function Recetas() {
                               </td>
                               <td>{formatFecha(item.fecha_emision)}</td>
                               <td>
-                                <button
-                                  type="button"
-                                  className="dash-btn-secondary"
-                                  onClick={() => setDetalle(item)}
-                                >
-                                  Ver detalle
-                                </button>
+                                <div className="recetas-acciones">
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary"
+                                    onClick={() => setDetalle(item)}
+                                  >
+                                    Ver detalle
+                                  </button>
+                                  {puedeEmitir && item.id_usuario_emisor === userId ? (
+                                    <button
+                                      type="button"
+                                      className="dash-btn-danger"
+                                      onClick={() => void handleDelete(item)}
+                                      disabled={saving}
+                                    >
+                                      Eliminar
+                                    </button>
+                                  ) : null}
+                                </div>
                               </td>
                             </tr>
                           )
