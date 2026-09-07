@@ -36,6 +36,9 @@ function Citas() {
   const [citasGestion, setCitasGestion] = useState<
     { id_cita: number; id_horario: number; id_paciente: number; fecha_inicio: string; paciente_nombre: string; estado: string }[]
   >([])
+  const [tabGestion, setTabGestion] = useState<'actuales' | 'anteriores' | 'proximas'>('actuales')
+  const [paginaGestion, setPaginaGestion] = useState(1)
+  const POR_PAGINA = 10
   const [loading, setLoading] = useState(true)
   const [reservando, setReservando] = useState<number | null>(null)
   const [cancelando, setCancelando] = useState<number | null>(null)
@@ -103,7 +106,6 @@ function Citas() {
             pacientes ( nombres, apellidos )
           `,
           )
-          .eq('estado', 'reservada')
           .order('created_at', { ascending: false }),
         supabase
           .from('pacientes')
@@ -244,6 +246,9 @@ function Citas() {
   }
 
   async function cancelarCitaGestion(idCita: number) {
+    const confirmado = window.confirm('¿Cancelar cita?')
+    if (!confirmado) return
+
     setError(null)
     setSuccess(null)
     setCancelando(idCita)
@@ -279,6 +284,40 @@ function Citas() {
 
   const yaReservado = (idHorario: number) =>
     misCitas.some((c) => c.id_horario === idHorario)
+
+  function claveDia(value: string): string {
+    const d = new Date(value)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate(),
+    ).padStart(2, '0')}`
+  }
+
+  const hoy = claveDia(new Date().toISOString())
+  const gestionActuales = citasGestion.filter(
+    (c) => c.fecha_inicio && claveDia(c.fecha_inicio) === hoy,
+  )
+  const gestionAnteriores = citasGestion.filter(
+    (c) => c.fecha_inicio && claveDia(c.fecha_inicio) < hoy,
+  )
+  const gestionProximas = citasGestion.filter(
+    (c) => c.fecha_inicio && claveDia(c.fecha_inicio) > hoy,
+  )
+
+  const listaGestion: Record<'actuales' | 'anteriores' | 'proximas', typeof citasGestion> = {
+    actuales: gestionActuales,
+    anteriores: gestionAnteriores,
+    proximas: gestionProximas,
+  }
+  const listaTabGestion = listaGestion[tabGestion]
+  const totalPaginasGestion = Math.max(
+    1,
+    Math.ceil(listaTabGestion.length / POR_PAGINA),
+  )
+  const paginaSeguraGestion = Math.min(paginaGestion, totalPaginasGestion)
+  const gestionPagina = listaTabGestion.slice(
+    (paginaSeguraGestion - 1) * POR_PAGINA,
+    paginaSeguraGestion * POR_PAGINA,
+  )
 
   return (
     <div className="dash">
@@ -398,19 +437,57 @@ function Citas() {
             <div className="dash-card">
               <div className="dash-card-header">
                 <div>
-                  <h3>Citas reservadas (gestión)</h3>
+                  <h3>Agendamientos de pacientes</h3>
                   <p className="dash-muted">
-                    Administrativo: cancela o reagenda las citas de los pacientes
+                    Historial de atenciones de todos los pacientes (presentes, anteriores y próximas)
                   </p>
                 </div>
-                <span className="dash-badge">{citasGestion.length}</span>
+              </div>
+
+              <div className="agenda-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tabGestion === 'actuales'}
+                  className={`agenda-tab${tabGestion === 'actuales' ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setTabGestion('actuales')
+                    setPaginaGestion(1)
+                  }}
+                >
+                  Actuales ({gestionActuales.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tabGestion === 'anteriores'}
+                  className={`agenda-tab${tabGestion === 'anteriores' ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setTabGestion('anteriores')
+                    setPaginaGestion(1)
+                  }}
+                >
+                  Anteriores ({gestionAnteriores.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tabGestion === 'proximas'}
+                  className={`agenda-tab${tabGestion === 'proximas' ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setTabGestion('proximas')
+                    setPaginaGestion(1)
+                  }}
+                >
+                  Próximas ({gestionProximas.length})
+                </button>
               </div>
 
               {loading ? (
                 <p className="dash-loading">Cargando citas…</p>
-              ) : citasGestion.length === 0 ? (
+              ) : listaTabGestion.length === 0 ? (
                 <p className="dash-empty">
-                  No hay citas reservadas actualmente.
+                  No hay agendamientos en esta categoría.
                 </p>
               ) : (
                 <div className="dash-table-wrap">
@@ -424,7 +501,7 @@ function Citas() {
                       </tr>
                     </thead>
                     <tbody>
-                      {citasGestion.map((c) => (
+                      {gestionPagina.map((c) => (
                         <tr key={c.id_cita}>
                           <td>{c.paciente_nombre}</td>
                           <td>{formatFechaHora(c.fecha_inicio)}</td>
@@ -432,19 +509,46 @@ function Citas() {
                             <span className="dash-badge">{c.estado}</span>
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className="dash-btn-secondary"
-                              onClick={() => void cancelarCitaGestion(c.id_cita)}
-                              disabled={cancelando === c.id_cita}
-                            >
-                              {cancelando === c.id_cita ? 'Cancelando…' : 'Cancelar'}
-                            </button>
+                            {tabGestion !== 'anteriores' && c.estado === 'reservada' ? (
+                              <button
+                                type="button"
+                                className="dash-btn-secondary"
+                                onClick={() => void cancelarCitaGestion(c.id_cita)}
+                                disabled={cancelando === c.id_cita}
+                              >
+                                {cancelando === c.id_cita ? 'Cancelando…' : 'Cancelar'}
+                              </button>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  {totalPaginasGestion > 1 ? (
+                    <div className="dash-pagination">
+                      <button
+                        type="button"
+                        className="dash-btn-secondary"
+                        disabled={paginaSeguraGestion <= 1}
+                        onClick={() => setPaginaGestion(paginaSeguraGestion - 1)}
+                      >
+                        Anterior
+                      </button>
+                      <span className="dash-muted">
+                        Página {paginaSeguraGestion} de {totalPaginasGestion}
+                      </span>
+                      <button
+                        type="button"
+                        className="dash-btn-secondary"
+                        disabled={paginaSeguraGestion >= totalPaginasGestion}
+                        onClick={() => setPaginaGestion(paginaSeguraGestion + 1)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

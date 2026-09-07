@@ -113,7 +113,8 @@ export type BonoAtencion = {
   id_bono: number
   id_paciente: number
   sistema_prevision: string
-  monto?: number | null
+  tipo_atencion?: 'consulta' | 'procedimiento'
+  monto: number
   estado: 'pendiente' | 'emitido' | 'anulado'
   fecha_emision: string
   detalle?: string | null

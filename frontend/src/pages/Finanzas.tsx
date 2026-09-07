@@ -131,7 +131,7 @@ function Finanzas() {
         <header className="dash-topbar">
           <div>
             <h2>Presupuestos y finanzas</h2>
-            <p>Resumen presupuestario del centro (ingresos y egresos)</p>
+            <p>Ingresos generados por los bonos de atención y egresos del centro</p>
           </div>
           {puedeGestionar ? (
             <button
@@ -182,7 +182,8 @@ function Finanzas() {
               <div>
                 <h3>Partidas presupuestarias</h3>
                 <p className="dash-muted">
-                  Registro de partidas por periodo (expresión básica, sin contabilidad real)
+                  Los ingresos de tipo &quot;Bono de atención&quot; se registran automáticamente
+                  al emitir un bono
                 </p>
               </div>
               <span className="dash-badge">
