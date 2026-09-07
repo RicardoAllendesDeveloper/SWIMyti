@@ -19,7 +19,8 @@ type Bono = {
   id_bono: number
   id_paciente: number
   sistema_prevision: string
-  monto: number | null
+  tipo_atencion: 'consulta' | 'procedimiento'
+  monto: number
   estado: 'pendiente' | 'emitido' | 'anulado'
   fecha_emision: string
   detalle: string | null
@@ -36,6 +37,10 @@ function formatFecha(value: string): string {
   }
 }
 
+function formatMonto(value: number): string {
+  return `$${value.toLocaleString('es-CL')}`
+}
+
 function Bonos() {
   const { rol } = useAuthRol()
   const puedeGestionar =
@@ -49,8 +54,10 @@ function Bonos() {
   const [success, setSuccess] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
+  const [busquedaPaciente, setBusquedaPaciente] = useState('')
   const [idPaciente, setIdPaciente] = useState('')
   const [sistema, setSistema] = useState('FONASA')
+  const [tipoAtencion, setTipoAtencion] = useState<'consulta' | 'procedimiento'>('consulta')
   const [monto, setMonto] = useState('')
   const [detalle, setDetalle] = useState('')
 
@@ -61,7 +68,7 @@ function Bonos() {
     const bonosRes = await supabase
       .from('bonos_atencion')
       .select(
-        'id_bono, id_paciente, sistema_prevision, monto, estado, fecha_emision, detalle, pacientes(nombres, apellidos, rut)',
+        'id_bono, id_paciente, sistema_prevision, tipo_atencion, monto, estado, fecha_emision, detalle, pacientes(nombres, apellidos, rut)',
       )
       .order('fecha_emision', { ascending: false })
 
@@ -79,7 +86,8 @@ function Bonos() {
           id_bono: row.id_bono as number,
           id_paciente: row.id_paciente as number,
           sistema_prevision: row.sistema_prevision as string,
-          monto: row.monto as number | null,
+          tipo_atencion: (row.tipo_atencion as Bono['tipo_atencion']) ?? 'consulta',
+          monto: row.monto as number,
           estado: row.estado as Bono['estado'],
           fecha_emision: row.fecha_emision as string,
           detalle: row.detalle as string | null,
@@ -97,7 +105,7 @@ function Bonos() {
 
     const pacRes = await supabase
       .from('pacientes')
-      .select('id_paciente, rut, nombres, apellidos')
+      .select('id_paciente, rut, prevision, nombres, apellidos')
       .eq('activo', true)
       .order('apellidos', { ascending: true })
 
@@ -112,13 +120,21 @@ function Bonos() {
     void loadData()
   }, [loadData])
 
+  const pacientesFiltrados = pacientes.filter((p) => {
+    if (!busquedaPaciente.trim()) return true
+    const q = busquedaPaciente.trim().toLowerCase()
+    return `${p.nombres} ${p.apellidos} ${p.rut}`.toLowerCase().includes(q)
+  })
+
   function openForm() {
     setError(null)
     setSuccess(null)
     setIdPaciente('')
     setSistema('FONASA')
+    setTipoAtencion('consulta')
     setMonto('')
     setDetalle('')
+    setBusquedaPaciente('')
     setShowForm(true)
   }
 
@@ -132,8 +148,23 @@ function Bonos() {
     setError(null)
     setSuccess(null)
 
+    const montoNum = Number(monto)
     if (!idPaciente || !sistema) {
       setError('Selecciona un paciente y el sistema de previsión.')
+      return
+    }
+    if (!tipoAtencion) {
+      setError('Indica si la atención es consulta o procedimiento.')
+      return
+    }
+    if (!monto || montoNum <= 0) {
+      setError('El monto es obligatorio y debe ser mayor a 0.')
+      return
+    }
+    if (!detalle.trim()) {
+      setError(
+        'El detalle es obligatorio (valor de consulta o desglose de procedimiento).',
+      )
       return
     }
 
@@ -141,9 +172,10 @@ function Bonos() {
     const { error: insError } = await supabase.from('bonos_atencion').insert({
       id_paciente: Number(idPaciente),
       sistema_prevision: sistema,
-      monto: monto ? Number(monto) : null,
-      detalle: detalle.trim() || null,
-      estado: 'pendiente',
+      tipo_atencion: tipoAtencion,
+      monto: montoNum,
+      detalle: detalle.trim(),
+      estado: 'emitido',
     })
     setSaving(false)
 
@@ -152,7 +184,7 @@ function Bonos() {
       return
     }
 
-    setSuccess('Bono de atención registrado correctamente.')
+    setSuccess('Bono de atención emitido. El ingreso se registró en Finanzas.')
     setShowForm(false)
     await loadData()
   }
@@ -165,7 +197,7 @@ function Bonos() {
         <header className="dash-topbar">
           <div>
             <h2>Bonos de atención</h2>
-            <p>Sistema de previsión y registro de bonos del paciente</p>
+            <p>Registro y cobro de las atenciones según la cobertura del paciente</p>
           </div>
           {puedeGestionar ? (
             <button
@@ -195,7 +227,7 @@ function Bonos() {
               <div>
                 <h3>Registro de bonos</h3>
                 <p className="dash-muted">
-                  Previsión asociada al paciente (FONASA, ISAPRE, Particular, CAPREDENA, DIPRECA, ISP, ISL)
+                  Cada bono emitido se refleja como ingreso en Finanzas
                 </p>
               </div>
               <span className="dash-badge">
@@ -207,7 +239,7 @@ function Bonos() {
               <p className="dash-loading">Cargando bonos…</p>
             ) : bonos.length === 0 ? (
               <p className="dash-empty">
-                No hay bonos registrados. Usa “Nuevo bono” para crear el primero.
+                No hay bonos registrados. Usa “Nuevo bono” para cobrar la primera atención.
               </p>
             ) : (
               <div className="dash-table-wrap">
@@ -217,6 +249,7 @@ function Bonos() {
                       <th>ID</th>
                       <th>Paciente</th>
                       <th>Previsión</th>
+                      <th>Tipo</th>
                       <th>Monto</th>
                       <th>Estado</th>
                       <th>Emisión</th>
@@ -240,10 +273,13 @@ function Bonos() {
                           <span className="bonos-chip">{b.sistema_prevision}</span>
                         </td>
                         <td>
-                          {b.monto != null
-                            ? `${b.monto.toLocaleString('es-CL')}`
-                            : '—'}
+                          <span className="bonos-chip">
+                            {b.tipo_atencion === 'procedimiento'
+                              ? 'Procedimiento'
+                              : 'Consulta'}
+                          </span>
                         </td>
+                        <td>{formatMonto(b.monto)}</td>
                         <td>
                           <span className="bonos-estado">{b.estado}</span>
                         </td>
@@ -275,7 +311,7 @@ function Bonos() {
             <div className="dash-modal-header">
               <div>
                 <h3 id="nuevo-bono-title">Nuevo bono de atención</h3>
-                <p>Asocia al paciente a su sistema de previsión.</p>
+                <p>Cobra la atención según la cobertura del paciente.</p>
               </div>
               <button
                 type="button"
@@ -290,20 +326,49 @@ function Bonos() {
 
             <form className="dash-form" onSubmit={(e) => void handleCreate(e)}>
               <div className="dash-field">
+                <label htmlFor="bono-tipo">Tipo de atención</label>
+                <select
+                  id="bono-tipo"
+                  value={tipoAtencion}
+                  onChange={(e) => setTipoAtencion(e.target.value as 'consulta' | 'procedimiento')}
+                  required
+                  disabled={saving}
+                >
+                  <option value="consulta">Consulta</option>
+                  <option value="procedimiento">Procedimiento</option>
+                </select>
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="bono-paciente-busqueda">Buscar paciente</label>
+                <input
+                  id="bono-paciente-busqueda"
+                  type="search"
+                  value={busquedaPaciente}
+                  onChange={(e) => {
+                    setBusquedaPaciente(e.target.value)
+                    setIdPaciente('')
+                  }}
+                  placeholder="Buscar por nombre o RUT…"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="dash-field">
                 <label htmlFor="bono-paciente">Paciente</label>
                 <select
                   id="bono-paciente"
                   value={idPaciente}
                   onChange={(e) => setIdPaciente(e.target.value)}
                   required
-                  disabled={saving}
+                  disabled={saving || pacientesFiltrados.length === 0}
                 >
                   <option value="">
-                    {pacientes.length === 0
-                      ? 'No hay pacientes disponibles'
+                    {pacientesFiltrados.length === 0
+                      ? 'No hay pacientes para la búsqueda'
                       : 'Selecciona un paciente'}
                   </option>
-                  {pacientes.map((p) => (
+                  {pacientesFiltrados.map((p) => (
                     <option key={p.id_paciente} value={String(p.id_paciente)}>
                       {p.nombres} {p.apellidos} - {p.rut}
                     </option>
@@ -329,26 +394,32 @@ function Bonos() {
               </div>
 
               <div className="dash-field">
-                <label htmlFor="bono-monto">Monto (opcional)</label>
+                <label htmlFor="bono-monto">Monto (según cobertura)</label>
                 <input
                   id="bono-monto"
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   value={monto}
                   onChange={(e) => setMonto(e.target.value)}
                   placeholder="Ej. 25000"
+                  required
                   disabled={saving}
                 />
               </div>
 
               <div className="dash-field">
-                <label htmlFor="bono-detalle">Detalle (opcional)</label>
+                <label htmlFor="bono-detalle">Detalle de la atención</label>
                 <textarea
                   id="bono-detalle"
                   value={detalle}
                   onChange={(e) => setDetalle(e.target.value)}
-                  placeholder="Detalle del bono o prestación"
+                  placeholder={
+                    tipoAtencion === 'consulta'
+                      ? 'Ej. Valor de consulta de medicina general'
+                      : 'Ej. Honorarios, insumos, quirófano…'
+                  }
+                  required
                   disabled={saving}
                 />
               </div>
@@ -363,7 +434,7 @@ function Bonos() {
                   Cancelar
                 </button>
                 <button type="submit" className="dash-btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Guardar bono'}
+                  {saving ? 'Guardando…' : 'Emitir bono y cobrar'}
                 </button>
               </div>
             </form>

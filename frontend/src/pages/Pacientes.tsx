@@ -370,7 +370,7 @@ function Pacientes() {
                                       className="pac-btn-secondary"
                                       onClick={() => openEdit(p)}
                                     >
-                                      Editar
+                                      Actualizar
                                     </button>
                                   ) : null}
                                 </div>

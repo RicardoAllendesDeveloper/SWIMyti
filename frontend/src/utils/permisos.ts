@@ -51,9 +51,13 @@ export function puedeGestionarCitas(rol: RolUsuario): boolean {
   return rol === 'administrador' || rol === 'administrativo'
 }
 
-/** Roles que pueden solicitar interconsultas (enfermería/admin) */
+/** Roles que pueden solicitar interconsultas (enfermería/administrativo/admin) */
 export function puedeSolicitarInterconsulta(rol: RolUsuario): boolean {
-  return rol === 'enfermeria' || rol === 'administrador'
+  return (
+    rol === 'enfermeria' ||
+    rol === 'administrativo' ||
+    rol === 'administrador'
+  )
 }
 
 export const NOMBRE_ROL: Record<NonNullable<RolUsuario>, string> = {
