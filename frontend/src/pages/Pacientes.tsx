@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import { puedeRegistrarPaciente } from '../utils/permisos'
+import { puedeRegistrarPaciente, esPersonalClinico } from '../utils/permisos'
 import type { Paciente } from '../types/database'
 import '../styles/Pacientes.css'
 
@@ -25,6 +26,7 @@ const emptyForm: PacienteForm = {
 }
 
 function Pacientes() {
+  const navigate = useNavigate()
   const { rol } = useAuthRol()
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,6 +36,9 @@ function Pacientes() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<PacienteForm>(emptyForm)
   const [missingProfile, setMissingProfile] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 10
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -151,6 +156,40 @@ function Pacientes() {
     await loadData()
   }
 
+  async function verFicha(idPaciente: number) {
+    setError(null)
+    const res = await supabase
+      .from('fichas_medicas')
+      .select('id_ficha')
+      .eq('id_paciente', idPaciente)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (res.error || !res.data) {
+      setError(
+        'Este paciente no tiene atenciones registradas o no tienes permisos para verlas.',
+      )
+      return
+    }
+    navigate(`/ficha/${res.data.id_ficha}`)
+  }
+
+  const pacientesFiltrados = pacientes.filter((p) => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    return `${p.rut} ${p.nombres} ${p.apellidos} ${p.email ?? ''} ${p.telefono ?? ''}`
+      .toLowerCase()
+      .includes(q)
+  })
+
+  const totalPaginas = Math.max(1, Math.ceil(pacientesFiltrados.length / POR_PAGINA))
+  const paginaSegura = Math.min(pagina, totalPaginas)
+  const pacientesPagina = pacientesFiltrados.slice(
+    (paginaSegura - 1) * POR_PAGINA,
+    paginaSegura * POR_PAGINA,
+  )
+
   return (
     <div className="pac">
       <Sidebar moduloActivo="pacientes" />
@@ -203,39 +242,94 @@ function Pacientes() {
 
             {loading ? (
               <p className="pac-loading">Cargando pacientes…</p>
-            ) : pacientes.length === 0 ? (
-              <p className="pac-empty">
-                {missingProfile
-                  ? 'Sin perfil staff no se pueden ver pacientes aunque existan en la base.'
-                  : 'No hay pacientes registrados. Usa “Nuevo paciente” para crear el primero.'}
-              </p>
             ) : (
-              <div className="pac-table-wrap">
-                <table className="pac-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>RUT</th>
-                      <th>Nombres</th>
-                      <th>Apellidos</th>
-                      <th>Email</th>
-                      <th>Teléfono</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pacientes.map((p) => (
-                      <tr key={p.id_paciente}>
-                        <td>#{p.id_paciente}</td>
-                        <td>{p.rut}</td>
-                        <td>{p.nombres}</td>
-                        <td>{p.apellidos}</td>
-                        <td className="pac-cell-secondary">{p.email || '—'}</td>
-                        <td className="pac-cell-secondary">{p.telefono || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="pac-filter-bar">
+                  <input
+                    className="pac-filter-input"
+                    type="search"
+                    placeholder="Buscar por RUT, nombre, email o teléfono…"
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value)
+                      setPagina(1)
+                    }}
+                  />
+                  <span className="pac-muted">
+                    {pacientesFiltrados.length} resultado
+                    {pacientesFiltrados.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {pacientesFiltrados.length === 0 ? (
+                  <p className="pac-empty">
+                    {missingProfile
+                      ? 'Sin perfil staff no se pueden ver pacientes aunque existan en la base.'
+                      : 'No hay pacientes que coincidan con la búsqueda.'}
+                  </p>
+                ) : (
+                  <div className="pac-table-wrap">
+                    <table className="pac-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>RUT</th>
+                          <th>Nombres</th>
+                          <th>Apellidos</th>
+                          <th>Email</th>
+                          <th>Teléfono</th>
+                          {esPersonalClinico(rol) ? <th>Acción</th> : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pacientesPagina.map((p) => (
+                          <tr key={p.id_paciente}>
+                            <td>#{p.id_paciente}</td>
+                            <td>{p.rut}</td>
+                            <td>{p.nombres}</td>
+                            <td>{p.apellidos}</td>
+                            <td className="pac-cell-secondary">{p.email || '—'}</td>
+                            <td className="pac-cell-secondary">{p.telefono || '—'}</td>
+                            {esPersonalClinico(rol) ? (
+                              <td>
+                                <button
+                                  type="button"
+                                  className="pac-btn-secondary"
+                                  onClick={() => void verFicha(p.id_paciente)}
+                                >
+                                  Ver ficha
+                                </button>
+                              </td>
+                            ) : null}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {totalPaginas > 1 ? (
+                      <div className="pac-pagination">
+                        <button
+                          type="button"
+                          className="pac-btn-secondary"
+                          disabled={paginaSegura <= 1}
+                          onClick={() => setPagina(paginaSegura - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span className="pac-muted">
+                          Página {paginaSegura} de {totalPaginas}
+                        </span>
+                        <button
+                          type="button"
+                          className="pac-btn-secondary"
+                          disabled={paginaSegura >= totalPaginas}
+                          onClick={() => setPagina(paginaSegura + 1)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

@@ -10,14 +10,14 @@ type SidebarProps = {
 
 const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] = [
   { modulo: 'portal', label: 'Mi portal', ruta: '/portal', roles: ['paciente'] },
-  { modulo: 'citas', label: 'Toma de horas', ruta: '/citas', roles: ['*'] },
+  { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas', roles: ['*'] },
   { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard', roles: ['*'] },
   { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes', roles: ['*'] },
   { modulo: 'disponibilidad', label: 'Disponibilidad', ruta: '/disponibilidad', roles: ['administrador', 'doctor'] },
   { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas', roles: ['*'] },
   { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos', roles: ['administrador', 'administrativo'] },
   { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas', roles: ['administrador', 'administrativo'] },
-  { modulo: 'recetas', label: 'Recetas y certificados', ruta: '/recetas', roles: ['administrador', 'doctor'] },
+  { modulo: 'recetas', label: 'Recetas y certificados', ruta: '/recetas', roles: ['doctor'] },
   { modulo: 'usuarios', label: 'Usuarios', ruta: '/usuarios', roles: ['administrador'] },
 ]
 

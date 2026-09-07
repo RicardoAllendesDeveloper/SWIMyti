@@ -46,6 +46,9 @@ function Dashboard() {
   const [motivoConsulta, setMotivoConsulta] = useState('')
   const [diagnostico, setDiagnostico] = useState('')
   const [missingProfile, setMissingProfile] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 10
 
   const loadPacientes = useCallback(async () => {
     const pacientesRes = await supabase
@@ -218,6 +221,27 @@ function Dashboard() {
     }
   }
 
+  const fichasFiltradas = fichas.filter((ficha) => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    const paciente = ficha.pacientes
+    const nombre = paciente
+      ? `${paciente.nombres} ${paciente.apellidos} ${paciente.rut}`.toLowerCase()
+      : ''
+    return (
+      nombre.includes(q) ||
+      String(ficha.motivo_consulta).toLowerCase().includes(q) ||
+      String(ficha.diagnostico).toLowerCase().includes(q)
+    )
+  })
+
+  const totalPaginas = Math.max(1, Math.ceil(fichasFiltradas.length / POR_PAGINA))
+  const paginaSegura = Math.min(pagina, totalPaginas)
+  const fichasPagina = fichasFiltradas.slice(
+    (paginaSegura - 1) * POR_PAGINA,
+    paginaSegura * POR_PAGINA,
+  )
+
   return (
     <div className="dash">
       <Sidebar moduloActivo="fichas" />
@@ -226,7 +250,7 @@ function Dashboard() {
         <header className="dash-topbar">
           <div>
             <h2>Bienvenido a SWIMyti</h2>
-            <p>Fichas médicas inmutables · Append-only</p>
+            <p>Registro clínico inmutable y trazable</p>
           </div>
           {puedeCrearFicha(rol) ? (
             <button
@@ -234,7 +258,7 @@ function Dashboard() {
               className="dash-btn-primary"
               onClick={() => void openForm()}
             >
-              Nueva ficha
+              Nueva atención
             </button>
           ) : null}
         </header>
@@ -255,9 +279,9 @@ function Dashboard() {
           <div className="dash-card">
             <div className="dash-card-header">
               <div>
-                <h3>Fichas médicas</h3>
+                <h3>Historial de atenciones</h3>
                 <p className="dash-muted">
-                  Consulta de registros clínicos (tabla fichas_medicas)
+                  Registro clínico inmutable (tabla fichas_medicas)
                 </p>
               </div>
               <span className="dash-badge">
@@ -266,58 +290,101 @@ function Dashboard() {
             </div>
 
             {loading ? (
-              <p className="dash-loading">Cargando fichas…</p>
-            ) : fichas.length === 0 ? (
-              <p className="dash-empty">
-                No hay fichas registradas. Usa &quot;Nueva ficha&quot; para crear la primera.
-              </p>
+              <p className="dash-loading">Cargando atenciones…</p>
             ) : (
-              <div className="dash-table-wrap">
-                <table className="dash-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Paciente</th>
-                      <th>Motivo</th>
-                      <th>Diagnóstico</th>
-                      <th>Fecha</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fichas.map((ficha) => {
-                      const paciente = ficha.pacientes
-                      const nombrePaciente = paciente
-                        ? `${paciente.apellidos}, ${paciente.nombres}`
-                        : `Paciente #${ficha.id_paciente}`
-
-                      return (
-                        <tr key={ficha.id_ficha}>
-                          <td>#{ficha.id_ficha}</td>
-                          <td>
-                            <div>{nombrePaciente}</div>
-                            {paciente?.rut ? (
-                              <div className="dash-muted">RUT {paciente.rut}</div>
-                            ) : null}
-                          </td>
-                          <td>{ficha.motivo_consulta}</td>
-                          <td>{ficha.diagnostico}</td>
-                          <td>{formatDate(ficha.created_at)}</td>
-                          <td>
-                            <button
-                              type="button"
-                              className="dash-btn-secondary"
-                              onClick={() => navigate(`/ficha/${ficha.id_ficha}`)}
-                            >
-                              Ver
-                            </button>
-                          </td>
+              <>
+                <div className="dash-filter-bar">
+                  <input
+                    className="dash-filter-input"
+                    type="search"
+                    placeholder="Buscar por paciente, RUT, motivo o diagnóstico…"
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value)
+                      setPagina(1)
+                    }}
+                  />
+                  <span className="dash-muted">
+                    {fichasFiltradas.length} resultado
+                    {fichasFiltradas.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {fichasFiltradas.length === 0 ? (
+                  <p className="dash-empty">
+                    No hay atenciones que coincidan con la búsqueda.
+                  </p>
+                ) : (
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Paciente</th>
+                          <th>Motivo</th>
+                          <th>Diagnóstico</th>
+                          <th>Fecha</th>
+                          <th>Acción</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {fichasPagina.map((ficha) => {
+                          const paciente = ficha.pacientes
+                          const nombrePaciente = paciente
+                            ? `${paciente.apellidos}, ${paciente.nombres}`
+                            : `Paciente #${ficha.id_paciente}`
+
+                          return (
+                            <tr key={ficha.id_ficha}>
+                              <td>#{ficha.id_ficha}</td>
+                              <td>
+                                <div>{nombrePaciente}</div>
+                                {paciente?.rut ? (
+                                  <div className="dash-muted">RUT {paciente.rut}</div>
+                                ) : null}
+                              </td>
+                              <td>{ficha.motivo_consulta}</td>
+                              <td>{ficha.diagnostico}</td>
+                              <td>{formatDate(ficha.created_at)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="dash-btn-secondary"
+                                  onClick={() => navigate(`/ficha/${ficha.id_ficha}`)}
+                                >
+                                  Ver
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {totalPaginas > 1 ? (
+                      <div className="dash-pagination">
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura <= 1}
+                          onClick={() => setPagina(paginaSegura - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span className="dash-muted">
+                          Página {paginaSegura} de {totalPaginas}
+                        </span>
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          disabled={paginaSegura >= totalPaginas}
+                          onClick={() => setPagina(paginaSegura + 1)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -339,7 +406,7 @@ function Dashboard() {
           >
             <div className="dash-modal-header">
               <div>
-                <h3 id="nueva-ficha-title">Nueva ficha médica</h3>
+                <h3 id="nueva-ficha-title">Nueva atención médica</h3>
                 <p>
                   El diagnóstico es inmutable. Las correcciones posteriores se
                   registran como enmiendas.
@@ -434,7 +501,7 @@ function Dashboard() {
                   className="dash-btn-primary"
                   disabled={saving || pacientes.length === 0}
                 >
-                  {saving ? 'Guardando…' : 'Guardar ficha'}
+                  {saving ? 'Guardando…' : 'Guardar atención'}
                 </button>
               </div>
             </form>

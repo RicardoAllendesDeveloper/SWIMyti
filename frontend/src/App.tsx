@@ -116,7 +116,7 @@ function App() {
           path="/recetas"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor']}>
+              <RoleRoute roles={['doctor']}>
                 <Recetas />
               </RoleRoute>
             </ProtectedRoute>

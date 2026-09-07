@@ -1,6 +1,6 @@
 # SWIMyti — gitignore raíz
 
-# Archivos de contexto de desarrollo / agente (no subir)
+# Archivos de contexto de desarrollo (no subir)
 AGENT.md
 
 # Entorno local
