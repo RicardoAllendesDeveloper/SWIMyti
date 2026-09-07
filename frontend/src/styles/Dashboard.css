@@ -530,13 +530,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.9rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
+  padding-right: 0.25rem;
 }
 
 .dash-filter-input {
-  flex: 1 1 260px;
+  flex: 1 1 280px;
+  max-width: 480px;
   padding: 0.55rem 0.85rem;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -545,12 +547,23 @@
   background: #fff;
 }
 
+.dash-filter-bar .dash-muted {
+  white-space: nowrap;
+  padding-right: 0.5rem;
+}
+
 .dash-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.9rem;
-  margin-top: 1rem;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 0.5rem 0;
+}
+
+.dash-pagination .dash-btn-secondary {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
 }
 
 .dash-readonly {

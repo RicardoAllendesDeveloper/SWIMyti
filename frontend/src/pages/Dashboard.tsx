@@ -44,6 +44,7 @@ function Dashboard() {
 
   const [idPaciente, setIdPaciente] = useState('')
   const [motivoConsulta, setMotivoConsulta] = useState('')
+  const [anamnesis, setAnamnesis] = useState('')
   const [diagnostico, setDiagnostico] = useState('')
   const [missingProfile, setMissingProfile] = useState(false)
   const [busqueda, setBusqueda] = useState('')
@@ -154,6 +155,7 @@ function Dashboard() {
   function resetForm() {
     setIdPaciente('')
     setMotivoConsulta('')
+    setAnamnesis('')
     setDiagnostico('')
   }
 
@@ -198,6 +200,7 @@ function Dashboard() {
         id_paciente: Number(idPaciente),
         id_usuario_creador: userId,
         motivo_consulta: motivoConsulta.trim(),
+        anamnesis: anamnesis.trim() || null,
         diagnostico: diagnostico.trim(),
         firma_digital_hash,
       })
@@ -470,6 +473,20 @@ function Dashboard() {
                   required
                   disabled={saving}
                 />
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="ficha-anamnesis">Anamnesis</label>
+                <textarea
+                  id="ficha-anamnesis"
+                  value={anamnesis}
+                  onChange={(e) => setAnamnesis(e.target.value)}
+                  placeholder="Antecedentes y relato del paciente (separado del diagnóstico)"
+                  disabled={saving}
+                />
+                <p className="dash-field-hint">
+                  La anamnesis y el diagnóstico son campos independientes.
+                </p>
               </div>
 
               <div className="dash-field">

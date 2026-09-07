@@ -93,7 +93,7 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
     'finanzas',
     'usuarios',
   ],
-  doctor: ['fichas', 'pacientes', 'disponibilidad', 'interconsultas', 'recetas'],
+  doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas'],
   enfermeria: ['fichas', 'pacientes', 'citas', 'interconsultas'],
   administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
   unidad_apoyo: ['pacientes'],
