@@ -247,22 +247,7 @@ function Disponibilidad() {
   }
 
   async function verFichaPaciente(idPaciente: number) {
-    setError(null)
-    const res = await supabase
-      .from('fichas_medicas')
-      .select('id_ficha')
-      .eq('id_paciente', idPaciente)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (res.error || !res.data) {
-      setError(
-        'Este paciente no tiene atenciones registradas o no tienes permisos para verlas.',
-      )
-      return
-    }
-    navigate(`/ficha/${res.data.id_ficha}`)
+    navigate(`/expediente/${idPaciente}`)
   }
 
   async function cambiarEstadoAtencion(idCita: number, nuevoEstado: string) {
@@ -463,9 +448,9 @@ function Disponibilidad() {
                               type="button"
                               className="dash-btn-secondary"
                               onClick={() => void verFichaPaciente(a.id_paciente)}
-                              title="Ver la ficha del paciente"
+                              title="Ver el expediente del paciente"
                             >
-                              Ver ficha
+                              Ver expediente
                             </button>
                             {tabAtenciones !== 'anteriores' &&
                             a.estado === 'reservada' ? (
