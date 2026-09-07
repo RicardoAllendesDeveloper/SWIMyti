@@ -6,6 +6,7 @@ import Citas from './pages/Citas'
 import Dashboard from './pages/Dashboard'
 import DetalleFicha from './pages/DetalleFicha'
 import Disponibilidad from './pages/Disponibilidad'
+import Expediente from './pages/Expediente'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -50,6 +51,16 @@ function App() {
             <ProtectedRoute>
               <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
                 <DetalleFicha />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/expediente/:idPaciente"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+                <Expediente />
               </RoleRoute>
             </ProtectedRoute>
           }

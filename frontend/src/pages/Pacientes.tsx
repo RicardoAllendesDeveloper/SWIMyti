@@ -162,22 +162,7 @@ function Pacientes() {
   }
 
   async function verFicha(idPaciente: number) {
-    setError(null)
-    const res = await supabase
-      .from('fichas_medicas')
-      .select('id_ficha')
-      .eq('id_paciente', idPaciente)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (res.error || !res.data) {
-      setError(
-        'Este paciente no tiene atenciones registradas o no tienes permisos para verlas.',
-      )
-      return
-    }
-    navigate(`/ficha/${res.data.id_ficha}`)
+    navigate(`/expediente/${idPaciente}`)
   }
 
   function openEdit(paciente: Paciente) {
@@ -376,7 +361,7 @@ function Pacientes() {
                                       className="pac-btn-secondary"
                                       onClick={() => void verFicha(p.id_paciente)}
                                     >
-                                      Ver ficha
+                                      Ver expediente
                                     </button>
                                   ) : null}
                                   {puedeRegistrarPaciente(rol) ? (

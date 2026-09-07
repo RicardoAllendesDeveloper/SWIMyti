@@ -352,9 +352,9 @@ function Dashboard() {
                                 <button
                                   type="button"
                                   className="dash-btn-secondary"
-                                  onClick={() => navigate(`/ficha/${ficha.id_ficha}`)}
+                                  onClick={() => navigate(`/expediente/${ficha.id_paciente}`)}
                                 >
-                                  Ver
+                                  Ver expediente
                                 </button>
                               </td>
                             </tr>
@@ -476,20 +476,6 @@ function Dashboard() {
               </div>
 
               <div className="dash-field">
-                <label htmlFor="ficha-anamnesis">Anamnesis</label>
-                <textarea
-                  id="ficha-anamnesis"
-                  value={anamnesis}
-                  onChange={(e) => setAnamnesis(e.target.value)}
-                  placeholder="Antecedentes y relato del paciente (separado del diagnóstico)"
-                  disabled={saving}
-                />
-                <p className="dash-field-hint">
-                  La anamnesis y el diagnóstico son campos independientes.
-                </p>
-              </div>
-
-              <div className="dash-field">
                 <label htmlFor="ficha-diagnostico">Diagnóstico (inmutable)</label>
                 <textarea
                   id="ficha-diagnostico"
@@ -501,6 +487,20 @@ function Dashboard() {
                 />
                 <p className="dash-field-hint">
                   Este campo no podrá editarse después de guardar.
+                </p>
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="ficha-anamnesis">Anamnesis</label>
+                <textarea
+                  id="ficha-anamnesis"
+                  value={anamnesis}
+                  onChange={(e) => setAnamnesis(e.target.value)}
+                  placeholder="Antecedentes y relato del paciente (separado del diagnóstico)"
+                  disabled={saving}
+                />
+                <p className="dash-field-hint">
+                  La anamnesis y el diagnóstico son campos independientes.
                 </p>
               </div>
 
