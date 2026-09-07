@@ -91,15 +91,17 @@ where tipo_certificado ilike '%prueba%'
 
 -- 2.1) Bloques cuyo horario ya venció (fecha_fin en el pasado)
 --      Se conserva trazabilidad; se marcan como 'cancelada' en lugar de eliminar.
+--      Solo se marcan los que están 'disponible'; los 'reservada' (con citas
+--      asociadas de usuarios) no se tocan para no desincronizar el historial.
 select id_horario, id_profesional, fecha_inicio, fecha_fin, estado
 from public.horarios_disponibles
 where fecha_fin < now()
-  and estado not in ('cancelada', 'completada');
+  and estado = 'disponible';
 
 update public.horarios_disponibles
 set estado = 'cancelada'
 where fecha_fin < now()
-  and estado not in ('cancelada', 'completada');
+  and estado = 'disponible';
 
 -- 2.2) Bloques sin profesional válido (id_profesional que no existe en usuarios)
 select h.id_horario, h.id_profesional, h.fecha_inicio, h.fecha_fin
