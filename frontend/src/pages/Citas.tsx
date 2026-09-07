@@ -246,7 +246,9 @@ function Citas() {
   }
 
   async function cancelarCitaGestion(idCita: number) {
-    const confirmado = window.confirm('¿Cancelar cita?')
+    const confirmado = window.confirm(
+      '¿Desea continuar con la cancelación de la cita?',
+    )
     if (!confirmado) return
 
     setError(null)

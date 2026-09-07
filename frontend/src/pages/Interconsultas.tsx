@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
 import { puedeSolicitarInterconsulta } from '../utils/permisos'
-import type { Interconsulta, Paciente } from '../types/database'
+import type { Especialidad, Interconsulta, Paciente } from '../types/database'
 import '../styles/Interconsultas.css'
 
 function formatFecha(value: string): string {
@@ -34,6 +34,7 @@ function Interconsultas() {
   const { rol } = useAuthRol()
   const [listado, setListado] = useState<Interconsulta[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
+  const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [doctores, setDoctores] = useState<{ id_usuario: string; nombres: string; apellidos: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -64,6 +65,16 @@ function Interconsultas() {
       .order('apellidos', { ascending: true })
     if (!pacientesRes.error) {
       setPacientes((pacientesRes.data ?? []) as Paciente[])
+    }
+
+    // Especialidades disponibles en el sistema
+    const espRes = await supabase
+      .from('especialidades')
+      .select('id_especialidad, nombre')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+    if (!espRes.error) {
+      setEspecialidades((espRes.data ?? []) as Especialidad[])
     }
 
     // Doctores (roles con rol doctor) para el destino
@@ -133,6 +144,32 @@ function Interconsultas() {
     void loadData()
   }, [loadData])
 
+  async function cargarDoctoresPorEspecialidad(idEspecialidad: string) {
+    setDoctores([])
+    setIdProfesional('')
+    if (!idEspecialidad) return
+
+    const res = await supabase
+      .from('usuarios')
+      .select(
+        'id_usuario, nombres, apellidos, roles!inner(nombre_rol), doctores_especialidades!inner(id_especialidad)',
+      )
+      .eq('roles.nombre_rol', 'doctor')
+      .eq('activo', true)
+      .eq('doctores_especialidades.id_especialidad', Number(idEspecialidad))
+      .order('apellidos', { ascending: true })
+
+    if (!res.error) {
+      setDoctores(
+        (res.data ?? []).map((d) => ({
+          id_usuario: d.id_usuario as string,
+          nombres: d.nombres as string,
+          apellidos: d.apellidos as string,
+        })),
+      )
+    }
+  }
+
   function openForm() {
     setError(null)
     setSuccess(null)
@@ -152,6 +189,10 @@ function Interconsultas() {
       setError('Paciente y motivo son obligatorios.')
       return
     }
+    if (!especialidad) {
+      setError('Selecciona la especialidad de la interconsulta.')
+      return
+    }
 
     const {
       data: { user },
@@ -161,12 +202,15 @@ function Interconsultas() {
       return
     }
 
+    const nombreEspecialidad =
+      especialidades.find((e) => String(e.id_especialidad) === especialidad)?.nombre ?? null
+
     setSaving(true)
     const { error: insertError } = await supabase.from('interconsultas').insert({
       id_paciente: Number(idPaciente),
       id_solicitante: user.id,
       id_profesional: idProfesional ? idProfesional : null,
-      especialidad: especialidad.trim() || null,
+      especialidad: nombreEspecialidad,
       motivo: motivo.trim(),
       estado: 'pendiente',
     })
@@ -524,15 +568,24 @@ function Interconsultas() {
               </div>
 
               <div className="dash-field">
-                <label htmlFor="ic-especialidad">Especialidad (opcional)</label>
-                <input
+                <label htmlFor="ic-especialidad">Especialidad</label>
+                <select
                   id="ic-especialidad"
-                  type="text"
                   value={especialidad}
-                  onChange={(e) => setEspecialidad(e.target.value)}
-                  placeholder="Ej. Cardiología"
-                  disabled={saving}
-                />
+                  onChange={(e) => {
+                    setEspecialidad(e.target.value)
+                    void cargarDoctoresPorEspecialidad(e.target.value)
+                  }}
+                  required
+                  disabled={saving || especialidades.length === 0}
+                >
+                  <option value="">Selecciona una especialidad</option>
+                  {especialidades.map((e) => (
+                    <option key={e.id_especialidad} value={String(e.id_especialidad)}>
+                      {e.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="dash-field">
@@ -543,13 +596,22 @@ function Interconsultas() {
                   onChange={(e) => setIdProfesional(e.target.value)}
                   disabled={saving || doctores.length === 0}
                 >
-                  <option value="">Sin asignar</option>
+                  <option value="">
+                    {especialidad && doctores.length === 0
+                      ? 'Sin doctores de esta especialidad'
+                      : 'Sin asignar'}
+                  </option>
                   {doctores.map((d) => (
                     <option key={d.id_usuario} value={d.id_usuario}>
                       {d.nombres} {d.apellidos}
                     </option>
                   ))}
                 </select>
+                {especialidad && doctores.length === 0 ? (
+                  <p className="dash-field-hint">
+                    No hay doctores registrados con esta especialidad.
+                  </p>
+                ) : null}
               </div>
 
               <div className="dash-field">
