@@ -38,3 +38,9 @@
   font-size: 0.75rem;
   font-weight: 700;
 }
+
+.recetas-acciones {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}

@@ -3,6 +3,7 @@ export type Paciente = {
   rut: string
   nombres: string
   apellidos: string
+  prevision?: string | null
   telefono?: string | null
   email?: string | null
   direccion?: string | null

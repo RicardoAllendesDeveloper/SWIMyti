@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import { puedeRegistrarPaciente, esPersonalClinico } from '../utils/permisos'
+import { puedeRegistrarPaciente, esPersonalClinico, esAdmin } from '../utils/permisos'
 import type { Paciente } from '../types/database'
 import '../styles/Pacientes.css'
 
@@ -14,6 +14,7 @@ type PacienteForm = {
   telefono: string
   email: string
   direccion: string
+  prevision: string
 }
 
 const emptyForm: PacienteForm = {
@@ -23,6 +24,7 @@ const emptyForm: PacienteForm = {
   telefono: '',
   email: '',
   direccion: '',
+  prevision: '',
 }
 
 function Pacientes() {
@@ -39,6 +41,9 @@ function Pacientes() {
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const POR_PAGINA = 10
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<PacienteForm>(emptyForm)
+  const [editId, setEditId] = useState<number | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -73,7 +78,7 @@ function Pacientes() {
 
     const pacientesRes = await supabase
       .from('pacientes')
-      .select('id_paciente, rut, nombres, apellidos, telefono, email, direccion')
+      .select('id_paciente, rut, prevision, nombres, apellidos, telefono, email, direccion')
       .eq('activo', true)
       .order('apellidos', { ascending: true })
 
@@ -173,6 +178,79 @@ function Pacientes() {
       return
     }
     navigate(`/ficha/${res.data.id_ficha}`)
+  }
+
+  function openEdit(paciente: Paciente) {
+    setError(null)
+    setSuccess(null)
+    setEditId(paciente.id_paciente)
+    setEditForm({
+      rut: paciente.rut ?? '',
+      nombres: paciente.nombres ?? '',
+      apellidos: paciente.apellidos ?? '',
+      telefono: paciente.telefono ?? '',
+      email: paciente.email ?? '',
+      direccion: paciente.direccion ?? '',
+      prevision: paciente.prevision ?? '',
+    })
+    setShowEdit(true)
+  }
+
+  function closeEdit() {
+    if (saving) return
+    setShowEdit(false)
+    setEditId(null)
+  }
+
+  async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setSuccess(null)
+
+    if (!editId) return
+    if (!editForm.nombres.trim() || !editForm.apellidos.trim()) {
+      setError('Nombres y apellidos son obligatorios.')
+      return
+    }
+
+    setSaving(true)
+
+    const esAdminRol = esAdmin(rol)
+    const update: Record<string, unknown> = {
+      nombres: editForm.nombres.trim(),
+      apellidos: editForm.apellidos.trim(),
+      telefono: editForm.telefono.trim() || null,
+      email: editForm.email.trim() || null,
+      direccion: editForm.direccion.trim() || null,
+    }
+    if (esAdminRol) {
+      update.rut = editForm.rut.trim()
+      update.prevision = editForm.prevision.trim() || null
+    }
+
+    const { error: updateError } = await supabase
+      .from('pacientes')
+      .update(update)
+      .eq('id_paciente', editId)
+
+    setSaving(false)
+
+    if (updateError) {
+      const msg = updateError.message.toLowerCase()
+      if (msg.includes('42501') || msg.includes('sensibles')) {
+        setError(
+          'RUT y previsión solo pueden ser modificados por el rol Administrador.',
+        )
+      } else {
+        setError(updateError.message || 'No se pudo actualizar el paciente.')
+      }
+      return
+    }
+
+    setSuccess('Datos del paciente actualizados correctamente.')
+    setShowEdit(false)
+    setEditId(null)
+    await loadData()
   }
 
   const pacientesFiltrados = pacientes.filter((p) => {
@@ -277,7 +355,7 @@ function Pacientes() {
                           <th>Apellidos</th>
                           <th>Email</th>
                           <th>Teléfono</th>
-                          {esPersonalClinico(rol) ? <th>Acción</th> : null}
+                          {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) ? <th>Acción</th> : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -289,15 +367,28 @@ function Pacientes() {
                             <td>{p.apellidos}</td>
                             <td className="pac-cell-secondary">{p.email || '—'}</td>
                             <td className="pac-cell-secondary">{p.telefono || '—'}</td>
-                            {esPersonalClinico(rol) ? (
+                            {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) ? (
                               <td>
-                                <button
-                                  type="button"
-                                  className="pac-btn-secondary"
-                                  onClick={() => void verFicha(p.id_paciente)}
-                                >
-                                  Ver ficha
-                                </button>
+                                <div className="pac-acciones">
+                                  {esPersonalClinico(rol) ? (
+                                    <button
+                                      type="button"
+                                      className="pac-btn-secondary"
+                                      onClick={() => void verFicha(p.id_paciente)}
+                                    >
+                                      Ver ficha
+                                    </button>
+                                  ) : null}
+                                  {puedeRegistrarPaciente(rol) ? (
+                                    <button
+                                      type="button"
+                                      className="pac-btn-secondary"
+                                      onClick={() => openEdit(p)}
+                                    >
+                                      Editar
+                                    </button>
+                                  ) : null}
+                                </div>
                               </td>
                             ) : null}
                           </tr>
@@ -447,6 +538,159 @@ function Pacientes() {
                 </button>
                 <button type="submit" className="pac-btn-primary" disabled={saving}>
                   {saving ? 'Guardando…' : 'Guardar paciente'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showEdit && editId ? (
+        <div
+          className="pac-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeEdit()
+          }}
+        >
+          <div
+            className="pac-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editar-paciente-title"
+          >
+            <div className="pac-modal-header">
+              <div>
+                <h3 id="editar-paciente-title">Editar paciente</h3>
+                <p>
+                  Actualiza los datos de contacto. La ficha médica es inmutable;
+                  RUT y previsión solo los edita el Administrador.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="pac-modal-close"
+                onClick={closeEdit}
+                aria-label="Cerrar"
+                disabled={saving}
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="pac-form" onSubmit={(e) => void handleSaveEdit(e)}>
+              <div className="pac-field">
+                <label htmlFor="editar-pac-rut">RUT</label>
+                <input
+                  id="editar-pac-rut"
+                  value={editForm.rut}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, rut: e.target.value }))
+                  }
+                  disabled={saving || !esAdmin(rol)}
+                />
+                {!esAdmin(rol) ? (
+                  <p className="pac-field-hint">
+                    Solo el rol Administrador puede modificar el RUT.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-nombres">Nombres</label>
+                <input
+                  id="editar-pac-nombres"
+                  value={editForm.nombres}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, nombres: e.target.value }))
+                  }
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-apellidos">Apellidos</label>
+                <input
+                  id="editar-pac-apellidos"
+                  value={editForm.apellidos}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, apellidos: e.target.value }))
+                  }
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-prevision">Previsión</label>
+                <input
+                  id="editar-pac-prevision"
+                  value={editForm.prevision}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, prevision: e.target.value }))
+                  }
+                  placeholder="FONASA, ISAPRE, Particular…"
+                  disabled={saving || !esAdmin(rol)}
+                />
+                {!esAdmin(rol) ? (
+                  <p className="pac-field-hint">
+                    Solo el rol Administrador puede modificar la previsión.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-telefono">Teléfono</label>
+                <input
+                  id="editar-pac-telefono"
+                  value={editForm.telefono}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, telefono: e.target.value }))
+                  }
+                  placeholder="+56912345678"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-email">Email</label>
+                <input
+                  id="editar-pac-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, email: e.target.value }))
+                  }
+                  placeholder="paciente@ejemplo.cl"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="editar-pac-direccion">Dirección</label>
+                <input
+                  id="editar-pac-direccion"
+                  value={editForm.direccion}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, direccion: e.target.value }))
+                  }
+                  placeholder="Comuna / calle"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="pac-form-actions">
+                <button
+                  type="button"
+                  className="pac-btn-secondary"
+                  onClick={closeEdit}
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="pac-btn-primary" disabled={saving}>
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </div>
             </form>

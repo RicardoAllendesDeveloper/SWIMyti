@@ -490,6 +490,12 @@
   margin-top: 1rem;
 }
 
+.pac-acciones {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 /* ----- Responsive ----- */
 @media (max-width: 900px) {
   .pac {
