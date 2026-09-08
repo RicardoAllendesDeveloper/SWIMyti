@@ -68,19 +68,15 @@ function Interconsultas() {
       setPacientes((pacientesRes.data ?? []) as Paciente[])
     }
 
-    // Especialidades disponibles en el sistema (excluye Enfermería, cuyo catálogo
-    // es para su agenda propia; las interconsultas son entre médicos)
+    // Especialidades disponibles en el sistema (incluye Enfermería, ya que un
+    // médico puede solicitar una interconsulta de curación o control de enfermería)
     const espRes = await supabase
       .from('especialidades')
       .select('id_especialidad, nombre')
       .eq('activo', true)
       .order('nombre', { ascending: true })
     if (!espRes.error) {
-      setEspecialidades(
-        ((espRes.data ?? []) as Especialidad[]).filter(
-          (e) => e.nombre.toLowerCase() !== 'enfermería',
-        ),
-      )
+      setEspecialidades((espRes.data ?? []) as Especialidad[])
     }
 
     // Doctores (roles con rol doctor) para el destino
@@ -123,12 +119,12 @@ function Interconsultas() {
 
     if (esPaciente) {
       // El paciente solo ve las suyas (RLS ya lo filtra)
-    } else if (rol === 'doctor') {
+    } else if (rol === 'doctor' || rol === 'enfermeria') {
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (user) {
-        // El doctor ve sus propias + las pendientes sin asignar (para tomarlas)
+        // El personal clínico ve sus propias + las pendientes sin asignar (para tomarlas)
         query = query.or(
           `id_profesional.eq.${user.id},and(id_profesional.is.null,estado.eq.pendiente)`,
         )
@@ -352,8 +348,8 @@ function Interconsultas() {
             <p>
               {esPaciente
                 ? 'Confirma o rechaza tus interconsultas'
-                : rol === 'doctor'
-                  ? 'Toma interconsultas pendientes y atiende las confirmadas'
+                : rol === 'doctor' || rol === 'enfermeria'
+                  ? 'Toma interconsultas de tu especialidad y atiende las confirmadas'
                   : 'Gestión de solicitudes de interconsulta'}
             </p>
           </div>
@@ -456,7 +452,7 @@ function Interconsultas() {
                                     Rechazar
                                   </button>
                                 </div>
-                              ) : rol === 'doctor' && i.estado === 'pendiente' && !i.id_profesional ? (
+                              ) : (rol === 'doctor' || rol === 'enfermeria') && i.estado === 'pendiente' && !i.id_profesional ? (
                                 <button
                                   type="button"
                                   className="dash-btn-primary"
@@ -465,7 +461,7 @@ function Interconsultas() {
                                 >
                                   Tomar
                                 </button>
-                              ) : rol === 'doctor' && i.estado === 'confirmada' ? (
+                              ) : (rol === 'doctor' || rol === 'enfermeria') && i.estado === 'confirmada' ? (
                                 <button
                                   type="button"
                                   className="dash-btn-primary"
