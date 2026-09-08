@@ -68,14 +68,19 @@ function Interconsultas() {
       setPacientes((pacientesRes.data ?? []) as Paciente[])
     }
 
-    // Especialidades disponibles en el sistema
+    // Especialidades disponibles en el sistema (excluye Enfermería, cuyo catálogo
+    // es para su agenda propia; las interconsultas son entre médicos)
     const espRes = await supabase
       .from('especialidades')
       .select('id_especialidad, nombre')
       .eq('activo', true)
       .order('nombre', { ascending: true })
     if (!espRes.error) {
-      setEspecialidades((espRes.data ?? []) as Especialidad[])
+      setEspecialidades(
+        ((espRes.data ?? []) as Especialidad[]).filter(
+          (e) => e.nombre.toLowerCase() !== 'enfermería',
+        ),
+      )
     }
 
     // Doctores (roles con rol doctor) para el destino
