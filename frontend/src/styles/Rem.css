@@ -1,0 +1,137 @@
+/* SWIMyti - Módulo REM (Resumen Estadístico Mensual) - CSS puro */
+
+.rem-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.rem-kpi {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.rem-kpi-valor {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #0f4c81;
+}
+
+.rem-kpi-label {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+.rem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+
+.rem-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.15rem 1.3rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.rem-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.rem-vacio {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+/* Barras */
+.rem-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.rem-barra-fila {
+  display: grid;
+  grid-template-columns: 150px 1fr 40px;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.rem-barra-label {
+  font-size: 0.82rem;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rem-barra-track {
+  height: 20px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rem-barra-valor {
+  height: 100%;
+  border-radius: 6px;
+  min-width: 4px;
+  transition: width 0.3s ease;
+}
+
+.rem-barra-num {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: right;
+}
+
+/* Torta */
+.rem-torta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.rem-leyenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.rem-leyenda-color {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+}
+
+@media (max-width: 720px) {
+  .rem-grid {
+    grid-template-columns: 1fr;
+  }
+  .rem-barra-fila {
+    grid-template-columns: 100px 1fr 34px;
+  }
+}

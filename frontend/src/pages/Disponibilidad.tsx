@@ -58,6 +58,8 @@ function Disponibilidad() {
   const navigate = useNavigate()
   const { rol } = useAuthRol()
 
+  const esProfesionalAgenda = rol === 'doctor' || rol === 'enfermeria'
+
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [horarios, setHorarios] = useState<HorarioDisponible[]>([])
   const [agenda, setAgenda] = useState<AtencionAgenda[]>([])
@@ -112,7 +114,7 @@ function Disponibilidad() {
       .order('fecha_inicio', { ascending: false })
       .limit(100)
 
-    if (user && rol === 'doctor') {
+    if (user && esProfesionalAgenda) {
       horQuery = horQuery.eq('id_profesional', user.id)
     }
 
@@ -144,7 +146,7 @@ function Disponibilidad() {
         )
         .order('created_at', { ascending: true })
 
-      if (rol === 'doctor') {
+      if (esProfesionalAgenda) {
         agQuery = agQuery.eq('horarios_disponibles.id_profesional', user.id)
       }
 
