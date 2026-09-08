@@ -70,6 +70,7 @@ export type Cita = {
   id_paciente: number
   motivo?: string | null
   estado: 'disponible' | 'reservada' | 'cancelada' | 'completada'
+  llegada?: 'pendiente' | 'en_sala' | 'no_llego' | 'tarde'
   created_at?: string
   horarios_disponibles?: {
     fecha_inicio: string

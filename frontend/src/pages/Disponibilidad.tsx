@@ -50,6 +50,7 @@ type AtencionAgenda = {
   especialidad: string
   motivo: string | null
   estado: string
+  llegada: string
 }
 
 type TabAtenciones = 'actuales' | 'anteriores' | 'proximas'
@@ -136,6 +137,7 @@ function Disponibilidad() {
           id_paciente,
           motivo,
           estado,
+          llegada,
           horarios_disponibles (
             id_profesional,
             fecha_inicio,
@@ -168,6 +170,7 @@ function Disponibilidad() {
             especialidad: (esp?.nombre as string) ?? 'Sin especialidad',
             motivo: (r.motivo as string | null) ?? null,
             estado: (r.estado as string) ?? 'reservada',
+            llegada: (r.llegada as string | undefined) ?? 'pendiente',
           }
         })
         setAgenda(rows)
@@ -428,6 +431,7 @@ function Disponibilidad() {
                       <th>Especialidad</th>
                       <th>Motivo</th>
                       <th>Estado</th>
+                      <th>Llegada</th>
                       <th>Acción</th>
                     </tr>
                   </thead>
@@ -442,6 +446,17 @@ function Disponibilidad() {
                         <td>
                           <span className="dash-badge">
                             {ESTADO_LABEL[a.estado] ?? a.estado}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`agenda-llegada agenda-llegada-${a.llegada}`}>
+                            {a.llegada === 'en_sala'
+                              ? 'En sala'
+                              : a.llegada === 'tarde'
+                                ? 'Llegó tarde'
+                                : a.llegada === 'no_llego'
+                                  ? 'No llegó'
+                                  : 'Sin registro'}
                           </span>
                         </td>
                         <td>

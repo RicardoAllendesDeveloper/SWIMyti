@@ -34,7 +34,7 @@ function Citas() {
   const [idPacienteGestion, setIdPacienteGestion] = useState('')
   const [misCitas, setMisCitas] = useState<{ id_cita: number; id_horario: number; fecha_inicio: string }[]>([])
   const [citasGestion, setCitasGestion] = useState<
-    { id_cita: number; id_horario: number; id_paciente: number; fecha_inicio: string; paciente_nombre: string; estado: string }[]
+    { id_cita: number; id_horario: number; id_paciente: number; fecha_inicio: string; paciente_nombre: string; estado: string; llegada?: string }[]
   >([])
   const [tabGestion, setTabGestion] = useState<'actuales' | 'anteriores' | 'proximas'>('actuales')
   const [paginaGestion, setPaginaGestion] = useState(1)
@@ -102,6 +102,7 @@ function Citas() {
             id_horario,
             id_paciente,
             estado,
+            llegada,
             horarios_disponibles ( fecha_inicio ),
             pacientes ( nombres, apellidos )
           `,
@@ -130,6 +131,7 @@ function Citas() {
               ? `${pac.apellidos ?? ''}, ${pac.nombres ?? ''}`.trim()
               : `Paciente #${r.id_paciente}`,
             estado: r.estado as string,
+            llegada: (r.llegada as string | undefined) ?? 'pendiente',
           }
         })
         setCitasGestion(rows)
@@ -268,6 +270,26 @@ function Citas() {
     }
 
     setSuccess('Cita cancelada. El horario vuelve a estar disponible.')
+    await loadData()
+  }
+
+  async function registrarLlegada(
+    idCita: number,
+    llegada: 'en_sala' | 'no_llego' | 'tarde',
+  ) {
+    setError(null)
+    setSuccess(null)
+
+    const { error } = await supabase
+      .from('citas')
+      .update({ llegada })
+      .eq('id_cita', idCita)
+
+    if (error) {
+      setError(error.message || 'No se pudo registrar la llegada.')
+      return
+    }
+    setSuccess('Llegada del paciente registrada.')
     await loadData()
   }
 
@@ -499,6 +521,7 @@ function Citas() {
                         <th>Paciente</th>
                         <th>Fecha y hora</th>
                         <th>Estado</th>
+                        <th>Llegada</th>
                         <th>Acción</th>
                       </tr>
                     </thead>
@@ -511,18 +534,56 @@ function Citas() {
                             <span className="dash-badge">{c.estado}</span>
                           </td>
                           <td>
-                            {tabGestion !== 'anteriores' && c.estado === 'reservada' ? (
-                              <button
-                                type="button"
-                                className="dash-btn-secondary"
-                                onClick={() => void cancelarCitaGestion(c.id_cita)}
-                                disabled={cancelando === c.id_cita}
-                              >
-                                {cancelando === c.id_cita ? 'Cancelando…' : 'Cancelar'}
-                              </button>
-                            ) : (
-                              '—'
-                            )}
+                            <span className="dash-badge">
+                              {c.llegada === 'pendiente'
+                                ? 'Sin registro'
+                                : c.llegada === 'en_sala'
+                                  ? 'En sala'
+                                  : c.llegada === 'tarde'
+                                    ? 'Llegó tarde'
+                                    : c.llegada === 'no_llego'
+                                      ? 'No llegó'
+                                      : c.llegada ?? '—'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="agenda-acciones">
+                              {tabGestion === 'actuales' && c.estado === 'reservada' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="dash-btn-primary"
+                                    onClick={() => void registrarLlegada(c.id_cita, 'en_sala')}
+                                  >
+                                    Llegó
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary"
+                                    onClick={() => void registrarLlegada(c.id_cita, 'tarde')}
+                                  >
+                                    Tarde
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dash-btn-danger"
+                                    onClick={() => void registrarLlegada(c.id_cita, 'no_llego')}
+                                  >
+                                    No llegó
+                                  </button>
+                                </>
+                              ) : null}
+                              {tabGestion !== 'anteriores' && c.estado === 'reservada' ? (
+                                <button
+                                  type="button"
+                                  className="dash-btn-secondary"
+                                  onClick={() => void cancelarCitaGestion(c.id_cita)}
+                                  disabled={cancelando === c.id_cita}
+                                >
+                                  {cancelando === c.id_cita ? 'Cancelando…' : 'Cancelar'}
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}

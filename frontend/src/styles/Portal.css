@@ -71,3 +71,13 @@
 .portal-aviso strong {
   color: #92400e;
 }
+
+.portal-aviso-info {
+  border-left-color: #0f4c81;
+  background: #eef4fb;
+}
+
+.portal-aviso-info p,
+.portal-aviso-info strong {
+  color: #0f4c81;
+}
