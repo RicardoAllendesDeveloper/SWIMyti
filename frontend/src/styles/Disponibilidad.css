@@ -45,3 +45,32 @@
   gap: 0.45rem;
   flex-wrap: wrap;
 }
+
+.agenda-llegada {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.agenda-llegada-pendiente {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.agenda-llegada-en_sala {
+  background: #e7f6ec;
+  color: #1d7a3f;
+}
+
+.agenda-llegada-tarde {
+  background: #fff4e6;
+  color: #b45309;
+}
+
+.agenda-llegada-no_llego {
+  background: #fdecec;
+  color: #c0392b;
+}
