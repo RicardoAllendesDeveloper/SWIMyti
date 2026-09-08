@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import { homeRol, puedeEnmendar } from '../utils/permisos'
-import type { FichaMedica, UsuarioResumen } from '../types/database'
+import type { AnexoClinico, FichaMedica, UsuarioResumen } from '../types/database'
 import '../styles/DetalleFicha.css'
 
 // =============================================================================
@@ -149,6 +149,7 @@ function Expediente() {
   const [enmiendas, setEnmiendas] = useState<Enmienda[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
+  const [anexos, setAnexos] = useState<AnexoClinico[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -185,7 +186,7 @@ function Expediente() {
     } = await supabase.auth.getUser()
     if (user) setUserId(user.id)
 
-    const [pacRes, fichasRes, enmRes, recRes, certRes] = await Promise.all([
+    const [pacRes, fichasRes, enmRes, recRes, certRes, anexRes] = await Promise.all([
       supabase
         .from('pacientes')
         .select(
@@ -236,6 +237,13 @@ function Expediente() {
         .select('id_certificado, tipo_certificado, detalle, fecha_emision')
         .eq('id_paciente', idPac)
         .order('fecha_emision', { ascending: false }),
+      supabase
+        .from('anexos_clinicos')
+        .select(
+          'id_anexo, id_paciente, nombre_archivo, tipo_mime, url_documento, descripcion, tipo_anexo, created_at',
+        )
+        .eq('id_paciente', idPac)
+        .order('created_at', { ascending: false }),
     ])
 
     if (pacRes.error || !pacRes.data) {
@@ -298,6 +306,7 @@ function Expediente() {
 
     if (!recRes.error) setRecetas((recRes.data ?? []) as Receta[])
     if (!certRes.error) setCertificados((certRes.data ?? []) as Certificado[])
+    if (!anexRes.error) setAnexos((anexRes.data ?? []) as AnexoClinico[])
 
     setLoading(false)
   }, [idPaciente])
@@ -695,6 +704,41 @@ function Expediente() {
                       <span className="df-enmienda-fecha">{formatFecha(c.fecha_emision)}</span>
                     </div>
                     {c.detalle ? <p className="df-enmienda-texto">{c.detalle}</p> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="df-card" aria-labelledby="anexos-title">
+          <div className="df-card-header">
+            <h2 id="anexos-title">Anexos clínicos</h2>
+            <span className="df-badge df-badge-readonly">{anexos.length}</span>
+          </div>
+          <div className="df-card-body">
+            {anexos.length === 0 ? (
+              <p className="df-empty">No hay anexos (exámenes o resultados) registrados.</p>
+            ) : (
+              <div className="df-timeline">
+                {anexos.map((a) => (
+                  <div key={a.id_anexo} className="df-enmienda">
+                    <div className="df-enmienda-top">
+                      <span className="df-enmienda-campo">
+                        {a.tipo_anexo ? a.tipo_anexo : 'Anexo'}
+                      </span>
+                      <span className="df-enmienda-fecha">
+                        {formatFechaHora(a.created_at)}
+                      </span>
+                    </div>
+                    <p className="df-enmienda-texto">
+                      {a.nombre_archivo || 'Documento'}
+                    </p>
+                    {a.descripcion ? (
+                      <p className="df-enmienda-texto">
+                        <strong>Descripción:</strong> {a.descripcion}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>

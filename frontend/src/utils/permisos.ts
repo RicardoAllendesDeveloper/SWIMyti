@@ -60,6 +60,16 @@ export function puedeSolicitarInterconsulta(rol: RolUsuario): boolean {
   )
 }
 
+/** Roles que pueden subir anexos clínicos (unidad de apoyo + personal clínico) */
+export function puedeSubirAnexo(rol: RolUsuario): boolean {
+  return (
+    rol === 'unidad_apoyo' ||
+    rol === 'administrador' ||
+    rol === 'doctor' ||
+    rol === 'enfermeria'
+  )
+}
+
 export const NOMBRE_ROL: Record<NonNullable<RolUsuario>, string> = {
   administrador: 'Administrador',
   doctor: 'Doctor(a)',

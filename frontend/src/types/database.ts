@@ -82,7 +82,8 @@ export type Cita = {
 
 export type AnexoClinico = {
   id_anexo: number
-  id_ficha: number
+  id_ficha?: number | null
+  id_paciente?: number | null
   id_usuario_subida: string
   nombre_archivo: string
   tipo_mime?: string | null

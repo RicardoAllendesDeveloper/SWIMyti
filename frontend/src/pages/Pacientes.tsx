@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import { puedeRegistrarPaciente, esPersonalClinico, esAdmin } from '../utils/permisos'
+import { puedeRegistrarPaciente, esPersonalClinico, esAdmin, puedeSubirAnexo } from '../utils/permisos'
 import type { Paciente } from '../types/database'
 import '../styles/Pacientes.css'
 
@@ -44,6 +44,10 @@ function Pacientes() {
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState<PacienteForm>(emptyForm)
   const [editId, setEditId] = useState<number | null>(null)
+  const [showAnexo, setShowAnexo] = useState(false)
+  const [anexoPaciente, setAnexoPaciente] = useState<Paciente | null>(null)
+  const [tipoAnexo, setTipoAnexo] = useState('laboratorio')
+  const [descripcionAnexo, setDescripcionAnexo] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -238,6 +242,63 @@ function Pacientes() {
     await loadData()
   }
 
+  function openAnexo(paciente: Paciente) {
+    setError(null)
+    setSuccess(null)
+    setAnexoPaciente(paciente)
+    setTipoAnexo('laboratorio')
+    setDescripcionAnexo('')
+    setShowAnexo(true)
+  }
+
+  function closeAnexo() {
+    if (saving) return
+    setShowAnexo(false)
+    setAnexoPaciente(null)
+  }
+
+  async function handleRegistrarAnexo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setSuccess(null)
+
+    if (!anexoPaciente) return
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setError('Sesión no válida.')
+      return
+    }
+
+    const nombreArchivo = descripcionAnexo.trim() || `anexo-${Date.now()}`
+    const urlSimbolica = `local://anexos/${anexoPaciente.id_paciente}/${tipoAnexo}/${Date.now()}`
+
+    setSaving(true)
+    const { error: insError } = await supabase.from('anexos_clinicos').insert({
+      id_paciente: anexoPaciente.id_paciente,
+      id_usuario_subida: user.id,
+      nombre_archivo: nombreArchivo,
+      tipo_mime: 'application/octet-stream',
+      url_documento: urlSimbolica,
+      descripcion: descripcionAnexo.trim() || null,
+      tipo_anexo: tipoAnexo,
+    })
+    setSaving(false)
+
+    if (insError) {
+      setError(insError.message || 'No se pudo registrar el anexo.')
+      return
+    }
+
+    setSuccess(
+      `Anexo registrado para ${anexoPaciente.nombres} ${anexoPaciente.apellidos}.`,
+    )
+    setShowAnexo(false)
+    setAnexoPaciente(null)
+  }
+
   const pacientesFiltrados = pacientes.filter((p) => {
     if (!busqueda.trim()) return true
     const q = busqueda.trim().toLowerCase()
@@ -340,7 +401,7 @@ function Pacientes() {
                           <th>Apellidos</th>
                           <th>Email</th>
                           <th>Teléfono</th>
-                          {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) ? <th>Acción</th> : null}
+                          {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) || puedeSubirAnexo(rol) ? <th>Acción</th> : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -352,7 +413,7 @@ function Pacientes() {
                             <td>{p.apellidos}</td>
                             <td className="pac-cell-secondary">{p.email || '—'}</td>
                             <td className="pac-cell-secondary">{p.telefono || '—'}</td>
-                            {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) ? (
+                            {esPersonalClinico(rol) || puedeRegistrarPaciente(rol) || puedeSubirAnexo(rol) ? (
                               <td>
                                 <div className="pac-acciones">
                                   {esPersonalClinico(rol) ? (
@@ -371,6 +432,15 @@ function Pacientes() {
                                       onClick={() => openEdit(p)}
                                     >
                                       Actualizar
+                                    </button>
+                                  ) : null}
+                                  {puedeSubirAnexo(rol) ? (
+                                    <button
+                                      type="button"
+                                      className="pac-btn-secondary"
+                                      onClick={() => openAnexo(p)}
+                                    >
+                                      Adjuntar anexo
                                     </button>
                                   ) : null}
                                 </div>
@@ -676,6 +746,91 @@ function Pacientes() {
                 </button>
                 <button type="submit" className="pac-btn-primary" disabled={saving}>
                   {saving ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showAnexo && anexoPaciente ? (
+        <div
+          className="pac-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeAnexo()
+          }}
+        >
+          <div
+            className="pac-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="anexo-title"
+          >
+            <div className="pac-modal-header">
+              <div>
+                <h3 id="anexo-title">Adjuntar anexo clínico</h3>
+                <p>
+                  {anexoPaciente.nombres} {anexoPaciente.apellidos} · RUT{' '}
+                  {anexoPaciente.rut}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="pac-modal-close"
+                onClick={closeAnexo}
+                aria-label="Cerrar"
+                disabled={saving}
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="pac-form" onSubmit={(e) => void handleRegistrarAnexo(e)}>
+              <div className="pac-field">
+                <label htmlFor="anexo-tipo">Tipo de anexo</label>
+                <select
+                  id="anexo-tipo"
+                  value={tipoAnexo}
+                  onChange={(e) => setTipoAnexo(e.target.value)}
+                  disabled={saving}
+                >
+                  <option value="laboratorio">Laboratorio</option>
+                  <option value="imagenologia">Imagenología</option>
+                  <option value="banco_sangre">Banco de sangre</option>
+                  <option value="informe">Informe</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="anexo-descripcion">Descripción del documento</label>
+                <textarea
+                  id="anexo-descripcion"
+                  value={descripcionAnexo}
+                  onChange={(e) => setDescripcionAnexo(e.target.value)}
+                  placeholder="Ej. Resultado de hemograma"
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <p className="pac-field-hint">
+                El anexo queda asociado al paciente y visible en su expediente
+                para el personal clínico.
+              </p>
+
+              <div className="pac-form-actions">
+                <button
+                  type="button"
+                  className="pac-btn-secondary"
+                  onClick={closeAnexo}
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="pac-btn-primary" disabled={saving}>
+                  {saving ? 'Guardando…' : 'Registrar anexo'}
                 </button>
               </div>
             </form>
