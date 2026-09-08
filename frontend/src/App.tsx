@@ -111,7 +111,9 @@ function App() {
           path="/citas"
           element={
             <ProtectedRoute>
-              <Citas />
+              <RoleRoute roles={['administrador', 'administrativo', 'paciente']}>
+                <Citas />
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
