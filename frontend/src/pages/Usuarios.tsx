@@ -82,7 +82,16 @@ function Usuarios() {
   const loadUsuarios = useCallback(async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id_usuario, email, nombres, apellidos, rut, activo, created_at, roles(nombre_rol)')
+      .select(
+        'id_usuario, email, nombres, apellidos, rut, activo, created_at, roles!inner(nombre_rol)',
+      )
+      .in('roles.nombre_rol', [
+        'administrador',
+        'doctor',
+        'enfermeria',
+        'administrativo',
+        'unidad_apoyo',
+      ])
       .order('created_at', { ascending: false })
 
     if (error) {
