@@ -9,6 +9,11 @@ type Rol = {
   nombre_rol: string
 }
 
+type Especialidad = {
+  id_especialidad: number
+  nombre: string
+}
+
 type UsuarioAdmin = {
   id_usuario: string
   email: string
@@ -54,6 +59,9 @@ function Usuarios() {
   const [editNombres, setEditNombres] = useState('')
   const [editApellidos, setEditApellidos] = useState('')
   const [editIdRol, setEditIdRol] = useState('')
+  const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
+  const [editEspecialidades, setEditEspecialidades] = useState<number[]>([])
+  const [editEspecialidadPrincipal, setEditEspecialidadPrincipal] = useState<number | null>(null)
 
   const loadRoles = useCallback(async () => {
     const { data, error } = await supabase
@@ -94,12 +102,26 @@ function Usuarios() {
     setUsuarios(rows)
   }, [])
 
+  const loadEspecialidades = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('especialidades')
+      .select('id_especialidad, nombre')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+
+    if (error) {
+      setError(error.message || 'No se pudieron cargar las especialidades.')
+      return
+    }
+    setEspecialidades((data ?? []) as Especialidad[])
+  }, [])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
-    await Promise.all([loadUsuarios(), loadRoles()])
+    await Promise.all([loadUsuarios(), loadRoles(), loadEspecialidades()])
     setLoading(false)
-  }, [loadUsuarios, loadRoles])
+  }, [loadUsuarios, loadRoles, loadEspecialidades])
 
   useEffect(() => {
     void loadData()
@@ -213,7 +235,7 @@ function Usuarios() {
     return NOMBRE_ROL[nombre as keyof typeof NOMBRE_ROL] ?? nombre ?? 'Sin rol'
   }
 
-  function openEdit(usuario: UsuarioAdmin) {
+  async function openEdit(usuario: UsuarioAdmin) {
     setError(null)
     setSuccess(null)
     setEditUsuario(usuario)
@@ -225,6 +247,24 @@ function Usuarios() {
       : rolActual?.nombre_rol
     const rol = roles.find((r) => r.nombre_rol === rolNombre)
     setEditIdRol(rol ? String(rol.id_rol) : '')
+    setEditEspecialidades([])
+    setEditEspecialidadPrincipal(null)
+
+    if (rolNombre === 'doctor') {
+      const { data, error } = await supabase
+        .from('doctores_especialidades')
+        .select('id_especialidad, es_principal')
+        .eq('id_doctor', usuario.id_usuario)
+
+      if (!error && data) {
+        const ids = (data ?? []).map((d) => d.id_especialidad as number)
+        const principal = (data ?? []).find((d) => d.es_principal)
+        setEditEspecialidades(ids)
+        setEditEspecialidadPrincipal(
+          principal ? (principal.id_especialidad as number) : (ids[0] ?? null),
+        )
+      }
+    }
     setShowEdit(true)
   }
 
@@ -245,6 +285,18 @@ function Usuarios() {
       return
     }
 
+    const rolSel = roles.find((r) => String(r.id_rol) === editIdRol)
+    if (rolSel?.nombre_rol === 'doctor') {
+      if (editEspecialidades.length === 0) {
+        setError('Asigna al menos una especialidad al doctor.')
+        return
+      }
+      if (!editEspecialidadPrincipal) {
+        setError('Selecciona la especialidad principal del doctor.')
+        return
+      }
+    }
+
     setSaving(true)
 
     const { error: updateError } = await supabase
@@ -256,13 +308,43 @@ function Usuarios() {
       })
       .eq('id_usuario', editUsuario.id_usuario)
 
-    setSaving(false)
-
     if (updateError) {
+      setSaving(false)
       setError(updateError.message || 'No se pudo actualizar el usuario.')
       return
     }
 
+    // Sincronizar especialidades si el usuario es doctor
+    if (rolSel?.nombre_rol === 'doctor') {
+      const { error: delError } = await supabase
+        .from('doctores_especialidades')
+        .delete()
+        .eq('id_doctor', editUsuario.id_usuario)
+
+      if (delError) {
+        setSaving(false)
+        setError(delError.message || 'No se pudieron actualizar las especialidades.')
+        return
+      }
+
+      const rows = editEspecialidades.map((idEsp) => ({
+        id_doctor: editUsuario.id_usuario,
+        id_especialidad: idEsp,
+        es_principal: idEsp === editEspecialidadPrincipal,
+      }))
+
+      const { error: insError } = await supabase
+        .from('doctores_especialidades')
+        .insert(rows)
+
+      if (insError) {
+        setSaving(false)
+        setError(insError.message || 'No se pudieron guardar las especialidades.')
+        return
+      }
+    }
+
+    setSaving(false)
     setSuccess('Usuario actualizado correctamente.')
     setShowEdit(false)
     setEditUsuario(null)
@@ -651,6 +733,58 @@ function Usuarios() {
                   ))}
                 </select>
               </div>
+
+              {roles.find((r) => String(r.id_rol) === editIdRol)?.nombre_rol === 'doctor' ? (
+                <div className="dash-field">
+                  <label>Especialidades del doctor</label>
+                  <div className="usu-especialidades">
+                    {especialidades.map((esp) => {
+                      const seleccionada = editEspecialidades.includes(esp.id_especialidad)
+                      return (
+                        <label
+                          key={esp.id_especialidad}
+                          className="usu-especialidad"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={seleccionada}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setEditEspecialidades((prev) =>
+                                checked
+                                  ? [...prev, esp.id_especialidad]
+                                  : prev.filter((id) => id !== esp.id_especialidad),
+                              )
+                              if (checked && !editEspecialidadPrincipal) {
+                                setEditEspecialidadPrincipal(esp.id_especialidad)
+                              }
+                            }}
+                            disabled={saving}
+                          />
+                          <span>{esp.nombre}</span>
+                          {seleccionada ? (
+                            <label className="usu-principal">
+                              <input
+                                type="radio"
+                                name="edit-principal"
+                                checked={editEspecialidadPrincipal === esp.id_especialidad}
+                                onChange={() =>
+                                  setEditEspecialidadPrincipal(esp.id_especialidad)
+                                }
+                                disabled={saving}
+                              />
+                              <span>Principal</span>
+                            </label>
+                          ) : null}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <p className="dash-field-hint">
+                    Marca las especialidades del doctor y selecciona la principal.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="dash-form-actions">
                 <button
