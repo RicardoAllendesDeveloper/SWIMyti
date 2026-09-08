@@ -754,37 +754,39 @@ function Usuarios() {
                           key={esp.id_especialidad}
                           className="usu-especialidad"
                         >
-                          <input
-                            type="checkbox"
-                            checked={seleccionada}
-                            onChange={(e) => {
-                              const checked = e.target.checked
-                              setEditEspecialidades((prev) =>
-                                checked
-                                  ? [...prev, esp.id_especialidad]
-                                  : prev.filter((id) => id !== esp.id_especialidad),
-                              )
-                              if (checked && !editEspecialidadPrincipal) {
-                                setEditEspecialidadPrincipal(esp.id_especialidad)
-                              }
-                            }}
-                            disabled={saving}
-                          />
-                          <span>{esp.nombre}</span>
-                          {seleccionada ? (
-                            <label className="usu-principal">
-                              <input
-                                type="radio"
-                                name="edit-principal"
-                                checked={editEspecialidadPrincipal === esp.id_especialidad}
-                                onChange={() =>
+                          <span className="usu-especialidad-nombre">{esp.nombre}</span>
+                          <span className="usu-especialidad-controls">
+                            {seleccionada ? (
+                              <label className="usu-principal">
+                                <input
+                                  type="radio"
+                                  name="edit-principal"
+                                  checked={editEspecialidadPrincipal === esp.id_especialidad}
+                                  onChange={() =>
+                                    setEditEspecialidadPrincipal(esp.id_especialidad)
+                                  }
+                                  disabled={saving}
+                                />
+                                <span>Principal</span>
+                              </label>
+                            ) : null}
+                            <input
+                              type="checkbox"
+                              checked={seleccionada}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                setEditEspecialidades((prev) =>
+                                  checked
+                                    ? [...prev, esp.id_especialidad]
+                                    : prev.filter((id) => id !== esp.id_especialidad),
+                                )
+                                if (checked && !editEspecialidadPrincipal) {
                                   setEditEspecialidadPrincipal(esp.id_especialidad)
                                 }
-                                disabled={saving}
-                              />
-                              <span>Principal</span>
-                            </label>
-                          ) : null}
+                              }}
+                              disabled={saving}
+                            />
+                          </span>
                         </label>
                       )
                     })}
