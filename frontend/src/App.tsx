@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard'
 import DetalleFicha from './pages/DetalleFicha'
 import Disponibilidad from './pages/Disponibilidad'
 import Expediente from './pages/Expediente'
+import Calculos from './pages/Calculos'
+import Rem from './pages/Rem'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -39,7 +41,7 @@ function App() {
           path="/pacientes"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'enfermeria', 'administrativo', 'unidad_apoyo']}>
+              <RoleRoute roles={['administrador', 'administrativo', 'unidad_apoyo']}>
                 <Pacientes />
               </RoleRoute>
             </ProtectedRoute>
@@ -79,8 +81,28 @@ function App() {
           path="/disponibilidad"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor']}>
+              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
                 <Disponibilidad />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calculos"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['doctor', 'enfermeria']}>
+                <Calculos />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rem"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['enfermeria']}>
+                <Rem />
               </RoleRoute>
             </ProtectedRoute>
           }

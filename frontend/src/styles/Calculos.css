@@ -1,0 +1,86 @@
+/* SWIMyti - Módulo de cálculos clínicos (CSS puro) */
+
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.calc-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.calc-card h3 {
+  margin: 0 0 0.9rem;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.calc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.calc-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.calc-fields input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.calc-fields input:focus {
+  border-color: #0f4c81;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
+}
+
+.calc-resultado {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: #e8f1fa;
+  border: 1px solid #c5daf0;
+  color: #0f4c81;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.calc-ayuda {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.calc-nota {
+  margin: 1.5rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .calc-grid {
+    grid-template-columns: 1fr;
+  }
+}
