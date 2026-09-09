@@ -582,10 +582,14 @@ function Expediente() {
               <p className="df-empty">Este paciente aún no tiene atenciones registradas.</p>
             ) : (
               <div className="df-timeline">
-                {atenciones.map((a) => (
+                {atenciones.map((a, idx) => {
+                const numRelativo = atenciones.length - idx
+                return (
                   <div key={a.id_ficha} className="df-enmienda">
                     <div className="df-enmienda-top">
-                      <span className="df-enmienda-campo">Atención #{a.id_ficha}</span>
+                      <span className="df-enmienda-campo">
+                        Atención {numRelativo}
+                      </span>
                       <span className="df-enmienda-fecha">
                         {formatFechaHora(a.created_at)}
                       </span>
@@ -652,7 +656,8 @@ function Expediente() {
                       </div>
                     ) : null}
                   </div>
-                ))}
+                )
+              })}
               </div>
             )}
           </div>
@@ -732,13 +737,8 @@ function Expediente() {
                       </span>
                     </div>
                     <p className="df-enmienda-texto">
-                      {a.nombre_archivo || 'Documento'}
+                      {a.descripcion || a.nombre_archivo || 'Documento'}
                     </p>
-                    {a.descripcion ? (
-                      <p className="df-enmienda-texto">
-                        <strong>Descripción:</strong> {a.descripcion}
-                      </p>
-                    ) : null}
                   </div>
                 ))}
               </div>

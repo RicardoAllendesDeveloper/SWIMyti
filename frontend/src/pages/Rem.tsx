@@ -129,6 +129,40 @@ function Rem() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  function exportarExcel() {
+    const filas: (string | number)[][] = [
+      ['Indicador', 'Valor'],
+      ['Atenciones totales', atenciones.length],
+      ['Atenciones este mes', atencionesEsteMes.length],
+      ['Citas registradas', citas.length],
+      ['Atenciones cobradas (bonos)', bonos.length],
+    ]
+    filas.push([])
+    filas.push(['Especialidad', 'Cantidad'])
+    for (const e of topEspecialidades) filas.push([e.clave, e.valor])
+    filas.push([])
+    filas.push(['Tipo de atención', 'Cantidad'])
+    for (const t of distribucionAtenciones) filas.push([t.clave, t.valor])
+    filas.push([])
+    filas.push(['Diagnóstico', 'Cantidad'])
+    for (const d of topDiagnosticos) filas.push([d.clave, d.valor])
+
+    const esc = (v: string | number) => {
+      const s = String(v)
+      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const csv = filas.map((f) => f.map(esc).join(';')).join('\r\n')
+    const blob = new Blob(['\ufeff' + csv], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `REM_SWIMyti_${mesActual.replace(/\s+/g, '_')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -211,6 +245,14 @@ function Rem() {
             <h2>REM — Resumen Estadístico Mensual</h2>
             <p>Indicadores de atención del centro · {mesActual}</p>
           </div>
+          <button
+            type="button"
+            className="dash-btn-primary"
+            onClick={exportarExcel}
+            disabled={loading}
+          >
+            Exportar a Excel
+          </button>
         </header>
 
         <section className="dash-content">

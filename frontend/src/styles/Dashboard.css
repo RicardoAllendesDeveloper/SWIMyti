@@ -108,11 +108,29 @@
   word-break: break-all;
 }
 
+.dash-user-nombre {
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.dash-user-email {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: rgba(232, 238, 245, 0.65);
+}
+
 .dash-user-rol {
   margin-top: 0.2rem;
   font-weight: 700;
   color: #ffd479;
   text-transform: capitalize;
+}
+
+.dash-user-esp {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: #93c5fd;
 }
 
 .dash-logout {
@@ -575,6 +593,24 @@
   color: #0f172a;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.dash-modal-body {
+  padding: 0.75rem 1.35rem 1.35rem;
+  max-height: min(70svh, 560px);
+  overflow: auto;
+}
+
+.dash-modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.calculos-modal-body .calc-grid {
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
 /* ----- Responsive ----- */

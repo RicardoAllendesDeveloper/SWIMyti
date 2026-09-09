@@ -82,20 +82,44 @@ function Disponibilidad() {
     setLoading(true)
     setError(null)
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Especialidades del catálogo. Si el profesional (doctor/enfermería) tiene
+// especialidades asignadas, se muestran solo las suyas.
     const espRes = await supabase
       .from('especialidades')
       .select('id_especialidad, nombre')
       .eq('activo', true)
       .order('nombre', { ascending: true })
+
     if (espRes.error) {
       setError(espRes.error.message)
+    } else if (user && esProfesionalAgenda) {
+      const misEsp = await supabase
+        .from('doctores_especialidades')
+        .select('id_especialidad, especialidades(nombre)')
+        .eq('id_doctor', user.id)
+
+      if (!misEsp.error && misEsp.data && misEsp.data.length > 0) {
+        setEspecialidades(
+          misEsp.data.map((row) => {
+            const esp = Array.isArray(row.especialidades)
+              ? row.especialidades[0]
+              : row.especialidades
+            return {
+              id_especialidad: row.id_especialidad as number,
+              nombre: (esp?.nombre as string) ?? 'Sin especialidad',
+            }
+          }),
+        )
+      } else {
+        setEspecialidades((espRes.data ?? []) as Especialidad[])
+      }
     } else {
       setEspecialidades((espRes.data ?? []) as Especialidad[])
     }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
     // Los horarios visibles: si es admin ve todos; si es doctor, los propios
     let horQuery = supabase
@@ -211,9 +235,15 @@ function Disponibilidad() {
 
     setSaving(true)
 
+    const idEspFinal = especialidad
+      ? Number(especialidad)
+      : especialidades.length === 1
+        ? especialidades[0].id_especialidad
+        : null
+
     const { error: insertError } = await supabase.from('horarios_disponibles').insert({
       id_profesional: user.id,
-      id_especialidad: especialidad ? Number(especialidad) : null,
+      id_especialidad: idEspFinal,
       fecha_inicio: inicio.toISOString(),
       fecha_fin: fin.toISOString(),
       estado: 'disponible',
@@ -465,9 +495,11 @@ function Disponibilidad() {
                               type="button"
                               className="dash-btn-secondary"
                               onClick={() => void verFichaPaciente(a.id_paciente)}
-                              title="Ver el expediente del paciente"
+                              title="Abrir el expediente del paciente"
                             >
-                              Ver expediente
+                              {tabAtenciones === 'actuales'
+                                ? 'Comenzar atención'
+                                : 'Ver expediente'}
                             </button>
                             {tabAtenciones !== 'anteriores' &&
                             a.estado === 'reservada' ? (
@@ -536,21 +568,27 @@ function Disponibilidad() {
             </div>
 
             <form className="dash-form" onSubmit={(e) => void crearBloque(e)}>
-              <div className="dash-field">
-                <label htmlFor="disp-especialidad">Especialidad</label>
-                <select
-                  id="disp-especialidad"
-                  value={especialidad}
-                  onChange={(e) => setEspecialidad(e.target.value)}
-                >
-                  <option value="">Sin especialidad</option>
-                  {especialidades.map((e) => (
-                    <option key={e.id_especialidad} value={String(e.id_especialidad)}>
-                      {e.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {especialidades.length > 1 ? (
+                <div className="dash-field">
+                  <label htmlFor="disp-especialidad">Especialidad</label>
+                  <select
+                    id="disp-especialidad"
+                    value={especialidad}
+                    onChange={(e) => setEspecialidad(e.target.value)}
+                  >
+                    <option value="">Selecciona una especialidad</option>
+                    {especialidades.map((e) => (
+                      <option key={e.id_especialidad} value={String(e.id_especialidad)}>
+                        {e.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : especialidades.length === 1 ? (
+                <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
+                  Especialidad: <strong>{especialidades[0].nombre}</strong>
+                </p>
+              ) : null}
 
               <div className="dash-row">
                 <div className="dash-field">
