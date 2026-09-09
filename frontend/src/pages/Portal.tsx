@@ -453,7 +453,9 @@ function Portal() {
                           <strong>
                             {tipoAnexoLabel[a.tipo_anexo ?? ''] ?? a.tipo_anexo ?? 'Resultado'}
                           </strong>
-                          <p className="portal-muted">{a.descripcion ?? a.nombre_archivo}</p>
+                          {a.descripcion ? (
+                            <p className="portal-muted">{a.descripcion}</p>
+                          ) : null}
                           <p className="portal-muted">{formatFecha(a.created_at)}</p>
                         </div>
                       </li>

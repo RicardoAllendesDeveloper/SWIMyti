@@ -72,6 +72,42 @@
   line-height: 1.4;
 }
 
+.calc-mediciones {
+  list-style: none;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.calc-mediciones li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.calc-medicion-eliminar {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+}
+
+.calc-medicion-eliminar:hover {
+  background: #fdecec;
+}
+
 .calc-nota {
   margin: 1.5rem 0 0;
   font-size: 0.78rem;

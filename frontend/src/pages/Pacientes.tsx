@@ -272,7 +272,7 @@ function Pacientes() {
       return
     }
 
-    const nombreArchivo = descripcionAnexo.trim() || `anexo-${Date.now()}`
+    const nombreArchivo = `Anexo ${tipoAnexo}`
     const urlSimbolica = `local://anexos/${anexoPaciente.id_paciente}/${tipoAnexo}/${Date.now()}`
 
     setSaving(true)

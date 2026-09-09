@@ -116,20 +116,41 @@ function HOMA() {
 function PerfilPresion() {
   const [sistolica, setSistolica] = useState('')
   const [diastolica, setDiastolica] = useState('')
+  const [mediciones, setMediciones] = useState<{ s: number; d: number }[]>([])
 
   const s = Number(sistolica)
   const d = Number(diastolica)
 
-  let clasificacion = ''
-  if (s > 0 && d > 0) {
-    if (s < 120 && d < 80) clasificacion = 'Presión arterial normal'
-    else if (s < 130 && d < 85) clasificacion = 'Presión normal-alta'
-    else if (s < 140 || d < 90) clasificacion = 'Hipertensión grado I'
-    else if (s < 160 || d < 100) clasificacion = 'Hipertensión grado II'
-    else clasificacion = 'Hipertensión grado III'
+  function agregarMedicion() {
+    if (s > 0 && d > 0) {
+      setMediciones((prev) => [...prev, { s, d }])
+      setSistolica('')
+      setDiastolica('')
+    }
   }
 
-  const valido = s > 0 && d > 0
+  function eliminarMedicion(idx: number) {
+    setMediciones((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const promedio =
+    mediciones.length > 0
+      ? {
+          s: redondear(mediciones.reduce((acc, m) => acc + m.s, 0) / mediciones.length),
+          d: redondear(mediciones.reduce((acc, m) => acc + m.d, 0) / mediciones.length),
+        }
+      : null
+
+  let clasificacion = ''
+  if (promedio) {
+    const ps = promedio.s
+    const pd = promedio.d
+    if (ps < 120 && pd < 80) clasificacion = 'Presión arterial normal'
+    else if (ps < 130 && pd < 85) clasificacion = 'Presión normal-alta'
+    else if (ps < 140 || pd < 90) clasificacion = 'Hipertensión grado I'
+    else if (ps < 160 || pd < 100) clasificacion = 'Hipertensión grado II'
+    else clasificacion = 'Hipertensión grado III'
+  }
 
   return (
     <div className="calc-card">
@@ -155,13 +176,41 @@ function PerfilPresion() {
             placeholder="Ej. 80"
           />
         </label>
+        <button
+          type="button"
+          className="dash-btn-secondary"
+          onClick={agregarMedicion}
+          disabled={!(s > 0 && d > 0)}
+        >
+          Agregar medición
+        </button>
       </div>
-      {valido ? (
-        <p className="calc-resultado">
-          PA {s}/{d} mmHg — <strong>{clasificacion}</strong>
-        </p>
+
+      {mediciones.length > 0 ? (
+        <>
+          <ul className="calc-mediciones">
+            {mediciones.map((m, idx) => (
+              <li key={idx}>
+                {m.s}/{m.d} mmHg
+                <button
+                  type="button"
+                  className="calc-medicion-eliminar"
+                  onClick={() => eliminarMedicion(idx)}
+                  aria-label="Eliminar medición"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="calc-resultado">
+            Promedio: <strong>{promedio!.s}/{promedio!.d} mmHg</strong> — {clasificacion}
+          </p>
+        </>
       ) : (
-        <p className="calc-ayuda">Ingresa sistólica y diastólica para clasificar.</p>
+        <p className="calc-ayuda">
+          Ingresa una o más mediciones para calcular el promedio y clasificar.
+        </p>
       )}
     </div>
   )
@@ -253,6 +302,60 @@ function DosisMedicamento() {
   )
 }
 
+export function CalculosGrid() {
+  return (
+    <>
+      <div className="calc-grid">
+        <IMC />
+        <HOMA />
+        <PerfilPresion />
+        <DosisMedicamento />
+      </div>
+      <p className="calc-nota">
+        Herramientas de apoyo a la decisión. No sustituyen el criterio del
+        profesional de salud.
+      </p>
+    </>
+  )
+}
+
+export function CalculosModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="dash-modal-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="dash-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="calculadora-title"
+      >
+        <div className="dash-modal-header">
+          <div>
+            <h3 id="calculadora-title">Cálculos clínicos</h3>
+            <p>Usa las herramientas sin cerrar el formulario.</p>
+          </div>
+          <button
+            type="button"
+            className="dash-modal-close"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+        <div className="dash-modal-body calculos-modal-body">
+          <CalculosGrid />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Calculos() {
   return (
     <div className="dash">
@@ -267,16 +370,7 @@ function Calculos() {
         </header>
 
         <section className="dash-content">
-          <div className="calc-grid">
-            <IMC />
-            <HOMA />
-            <PerfilPresion />
-            <DosisMedicamento />
-          </div>
-          <p className="calc-nota">
-            Herramientas de apoyo a la decisión. No sustituyen el criterio del
-            profesional de salud.
-          </p>
+          <CalculosGrid />
         </section>
       </div>
     </div>

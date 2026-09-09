@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
+import { CalculosModal } from './Calculos'
 import { puedeCrearFicha } from '../utils/permisos'
 import type { FichaMedica, Paciente } from '../types/database'
 import '../styles/Dashboard.css'
@@ -50,6 +51,7 @@ function Dashboard() {
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const POR_PAGINA = 10
+  const [showCalculadora, setShowCalculadora] = useState(false)
 
   const loadPacientes = useCallback(async () => {
     const pacientesRes = await supabase
@@ -415,15 +417,24 @@ function Dashboard() {
                   registran como enmiendas.
                 </p>
               </div>
-              <button
-                type="button"
-                className="dash-modal-close"
-                onClick={closeForm}
-                aria-label="Cerrar"
-                disabled={saving}
-              >
-                ×
-              </button>
+              <div className="dash-modal-header-actions">
+                <button
+                  type="button"
+                  className="dash-btn-secondary"
+                  onClick={() => setShowCalculadora(true)}
+                >
+                  Calculadora
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-close"
+                  onClick={closeForm}
+                  aria-label="Cerrar"
+                  disabled={saving}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <form className="dash-form" onSubmit={(e) => void handleCreateFicha(e)}>
@@ -524,6 +535,10 @@ function Dashboard() {
             </form>
           </div>
         </div>
+      ) : null}
+
+      {showCalculadora ? (
+        <CalculosModal onClose={() => setShowCalculadora(false)} />
       ) : null}
     </div>
   )

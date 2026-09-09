@@ -31,7 +31,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+              <RoleRoute roles={['doctor', 'enfermeria']}>
                 <Dashboard />
               </RoleRoute>
             </ProtectedRoute>
@@ -51,7 +51,7 @@ function App() {
           path="/ficha/:id"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+              <RoleRoute roles={['doctor', 'enfermeria']}>
                 <DetalleFicha />
               </RoleRoute>
             </ProtectedRoute>
@@ -61,7 +61,7 @@ function App() {
           path="/expediente/:idPaciente"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+              <RoleRoute roles={['doctor', 'enfermeria']}>
                 <Expediente />
               </RoleRoute>
             </ProtectedRoute>

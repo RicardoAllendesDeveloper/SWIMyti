@@ -22,6 +22,9 @@ type AuthRolContextValue = {
   session: Session | null
   rol: RolUsuario
   email: string | null
+  nombres: string | null
+  apellidos: string | null
+  especialidad: string | null
   loading: boolean
   refreshRol: () => Promise<void>
 }
@@ -30,6 +33,9 @@ const AuthRolContext = createContext<AuthRolContextValue>({
   session: null,
   rol: null,
   email: null,
+  nombres: null,
+  apellidos: null,
+  especialidad: null,
   loading: true,
   refreshRol: async () => {},
 })
@@ -38,6 +44,9 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [rol, setRol] = useState<RolUsuario>(null)
   const [email, setEmail] = useState<string | null>(null)
+  const [nombres, setNombres] = useState<string | null>(null)
+  const [apellidos, setApellidos] = useState<string | null>(null)
+  const [especialidad, setEspecialidad] = useState<string | null>(null)
   const [loading, setLoading] = useState(!supabaseConfigError)
 
   const refreshRol = useCallback(async () => {
@@ -48,6 +57,9 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setRol(null)
       setEmail(null)
+      setNombres(null)
+      setApellidos(null)
+      setEspecialidad(null)
       return
     }
 
@@ -55,9 +67,43 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
 
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id_rol, roles(nombre_rol)')
+      .select(
+        'id_rol, nombres, apellidos, roles(nombre_rol), doctores_especialidades(especialidades(nombre))',
+      )
       .eq('id_usuario', user.id)
       .maybeSingle()
+
+    const aplicarDatos = (perfil: {
+      nombres?: string
+      apellidos?: string
+      roles?: { nombre_rol: string } | { nombre_rol: string }[] | null
+      doctores_especialidades?: {
+        especialidades?: { nombre?: string } | { nombre?: string }[] | null
+      }[] | null
+    }) => {
+      setNombres((perfil.nombres as string) ?? null)
+      setApellidos((perfil.apellidos as string) ?? null)
+      const rel = perfil.roles as
+        | { nombre_rol: string }
+        | { nombre_rol: string }[]
+        | null
+      const rolNombre = Array.isArray(rel) ? rel[0]?.nombre_rol : rel?.nombre_rol
+      setRol((rolNombre as RolUsuario) ?? null)
+
+      // Especialidad principal del profesional (primera con es_principal o la primera)
+      const espRows = perfil.doctores_especialidades ?? []
+      let espNombre: string | null = null
+      if (espRows.length > 0) {
+        const primera = espRows[0] as {
+          especialidades?: { nombre?: string } | { nombre?: string }[] | null
+        }
+        const e = Array.isArray(primera.especialidades)
+          ? primera.especialidades[0]?.nombre
+          : primera.especialidades?.nombre
+        espNombre = (e as string) ?? null
+      }
+      setEspecialidad(espNombre)
+    }
 
     if (error || !data) {
       // Auto-crear perfil si el usuario se registró con confirmación de email
@@ -77,16 +123,13 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
         // Re-intentar obtener el rol tras crear el perfil
         const { data: retry } = await supabase
           .from('usuarios')
-          .select('id_rol, roles(nombre_rol)')
+          .select(
+            'id_rol, nombres, apellidos, roles(nombre_rol), doctores_especialidades(especialidades(nombre))',
+          )
           .eq('id_usuario', user.id)
           .maybeSingle()
         if (retry) {
-          const rel = retry.roles as
-            | { nombre_rol: string }
-            | { nombre_rol: string }[]
-            | null
-          const rn = Array.isArray(rel) ? rel[0]?.nombre_rol : rel?.nombre_rol
-          setRol((rn as RolUsuario) ?? null)
+          aplicarDatos(retry)
           return
         }
       } catch {
@@ -96,14 +139,7 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const related = data.roles as
-      | { nombre_rol: string }
-      | { nombre_rol: string }[]
-      | null
-    const rolNombre = Array.isArray(related)
-      ? related[0]?.nombre_rol
-      : related?.nombre_rol
-    setRol((rolNombre as RolUsuario) ?? null)
+    aplicarDatos(data)
   }, [])
 
   useEffect(() => {
@@ -147,6 +183,9 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       } else {
         setRol(null)
         setEmail(null)
+        setNombres(null)
+        setApellidos(null)
+        setEspecialidad(null)
       }
       setLoading(false)
     })
@@ -160,7 +199,16 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthRolContext.Provider
-      value={{ session, rol, email, loading, refreshRol }}
+      value={{
+        session,
+        rol,
+        email,
+        nombres,
+        apellidos,
+        especialidad,
+        loading,
+        refreshRol,
+      }}
     >
       {children}
     </AuthRolContext.Provider>

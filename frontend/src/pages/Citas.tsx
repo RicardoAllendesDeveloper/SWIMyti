@@ -69,7 +69,7 @@ function Citas() {
         fecha_inicio,
         fecha_fin,
         estado,
-        usuarios:id_profesional ( nombres, apellidos ),
+        usuarios:id_profesional ( nombres, apellidos, roles ( nombre_rol ) ),
         especialidades ( nombre )
       `,
       )
@@ -182,6 +182,9 @@ function Citas() {
   }, [cargarHorarios])
 
   async function reservar(idHorario: number) {
+    const confirmado = window.confirm('¿Desea reservar esta hora?')
+    if (!confirmado) return
+
     setError(null)
     setSuccess(null)
     setReservando(idHorario)
@@ -296,7 +299,11 @@ function Citas() {
   function nombreProfesional(h: HorarioDisponible): string {
     const u = asSingle(h.usuarios)
     if (u && (u.nombres || u.apellidos)) {
-      return `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
+      const rolVal = Array.isArray(u.roles)
+        ? u.roles?.[0]?.nombre_rol
+        : u.roles?.nombre_rol
+      const prefijo = rolVal === 'doctor' ? 'Dr(a). ' : rolVal === 'enfermeria' ? 'EU. ' : ''
+      return `${prefijo}${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
     }
     return 'Profesional'
   }

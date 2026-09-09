@@ -26,7 +26,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
 function Sidebar({ moduloActivo }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { rol, email } = useAuthRol()
+  const { rol, email, nombres, apellidos, especialidad } = useAuthRol()
   const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleLogout() {
@@ -77,8 +77,16 @@ function Sidebar({ moduloActivo }: SidebarProps) {
 
       <div className="dash-sidebar-footer">
         <div className="dash-user" title={email ?? undefined}>
-          <div>{email ?? 'Usuario autenticado'}</div>
+          <div className="dash-user-nombre">
+            {(nombres || apellidos)
+              ? `${nombres ?? ''} ${apellidos ?? ''}`.trim()
+              : (email ?? 'Usuario autenticado')}
+          </div>
+          {email ? <div className="dash-user-email">{email}</div> : null}
           {rol ? <div className="dash-user-rol">{NOMBRE_ROL[rol]}</div> : null}
+          {especialidad ? (
+            <div className="dash-user-esp">{especialidad}</div>
+          ) : null}
         </div>
         <button
           type="button"

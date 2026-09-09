@@ -1,6 +1,6 @@
 import type { RolUsuario } from '../context/AuthRolContext'
 
-const ROLES_CLINICOS = ['administrador', 'doctor', 'enfermeria'] as const
+const ROLES_CLINICOS = ['doctor', 'enfermeria'] as const
 const ROLES_STAFF = [
   'administrador',
   'doctor',
@@ -26,9 +26,9 @@ export function puedeCrearFicha(rol: RolUsuario): boolean {
   return ROLES_CLINICOS.some((r) => r === rol)
 }
 
-/** Roles que pueden crear enmiendas (RLS: fn_puede_enmendar) */
+/** Roles que pueden crear enmiendas (RLS: fn_puede_enmendar — solo doctor) */
 export function puedeEnmendar(rol: RolUsuario): boolean {
-  return rol === 'administrador' || rol === 'doctor'
+  return rol === 'doctor'
 }
 
 /** Roles que pueden registrar pacientes (RLS: admin o administrativo) */
@@ -100,7 +100,6 @@ export type Modulo =
  */
 export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
   administrador: [
-    'fichas',
     'pacientes',
     'disponibilidad',
     'citas',
@@ -134,8 +133,10 @@ export function homeRol(rol: RolUsuario): string {
       return '/citas'
     case 'unidad_apoyo':
       return '/pacientes'
+    case 'administrador':
+      return '/usuarios'
     default:
-      // administrador, doctor, enfermeria -> fichas clínicas
+      // doctor, enfermeria -> fichas clínicas
       return '/dashboard'
   }
 }
