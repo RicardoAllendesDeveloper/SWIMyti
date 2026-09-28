@@ -6,17 +6,18 @@
   gap: 0.9rem;
 }
 
-.cal-disp-anio {
+.cal-disp-mes {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.cal-disp-anio-nombre {
-  font-size: 1.1rem;
+.cal-disp-nombre {
+  font-size: 1.05rem;
   font-weight: 700;
   color: #0f172a;
+  text-transform: capitalize;
 }
 
 .cal-disp-nav {
@@ -30,31 +31,14 @@
   color: #334155;
 }
 
-.cal-disp-nav:hover {
+.cal-disp-nav:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #94a3b8;
 }
 
-.cal-disp-meses {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-}
-
-.cal-disp-mes-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.6rem 0.7rem;
-  background: #fff;
-}
-
-.cal-disp-mes-titulo {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #0f172a;
-  text-transform: capitalize;
-  margin-bottom: 0.35rem;
-  text-align: center;
+.cal-disp-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .cal-disp-grid {
@@ -234,16 +218,4 @@
   color: #94a3b8;
   text-align: center;
   padding: 0.5rem;
-}
-
-@media (max-width: 900px) {
-  .cal-disp-meses {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .cal-disp-meses {
-    grid-template-columns: 1fr;
-  }
 }

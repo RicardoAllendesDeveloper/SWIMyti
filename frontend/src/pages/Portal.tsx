@@ -152,7 +152,7 @@ function Portal() {
       supabase
         .from('anexos_clinicos')
         .select(
-          'id_anexo, id_paciente, nombre_archivo, descripcion, tipo_anexo, created_at',
+          'id_anexo, id_paciente, nombre_archivo, descripcion, tipo_anexo, url_documento, created_at',
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
@@ -176,7 +176,7 @@ function Portal() {
         .eq('estado', 'disponible')
         .gte('fecha_inicio', new Date().toISOString())
         .order('fecha_inicio', { ascending: true })
-        .limit(15000),
+        .limit(1000),
     ])
 
     if (citasRes.error) setError(citasRes.error.message)
