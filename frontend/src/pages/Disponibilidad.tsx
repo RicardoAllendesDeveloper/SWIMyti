@@ -72,6 +72,9 @@ function Disponibilidad() {
   const [especialidad, setEspecialidad] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
+  const [horaInicio, setHoraInicio] = useState('')
+  const [horaFin, setHoraFin] = useState('')
+  const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5])
 
   const [tabAtenciones, setTabAtenciones] = useState<TabAtenciones>('actuales')
   const [busquedaBloques, setBusquedaBloques] = useState('')
@@ -213,23 +216,20 @@ function Disponibilidad() {
     setError(null)
     setSuccess(null)
 
-    if (!fechaInicio || !fechaFin) {
-      setError('Define la fecha/hora de inicio y fin del bloque.')
+    if (!fechaInicio || !fechaFin || !horaInicio || !horaFin) {
+      setError('Define el rango de fechas y la hora de inicio/fin de la jornada.')
       return
     }
 
-    const inicio = new Date(fechaInicio)
-    const fin = new Date(fechaFin)
-    if (fin <= inicio) {
-      setError('El fin debe ser posterior al inicio.')
+    if (diasSemana.length === 0) {
+      setError('Selecciona al menos un día de la semana.')
       return
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setError('Sesión no válida.')
+    const horaIni = new Date(`1970-01-01T${horaInicio}:00`)
+    const horaFn = new Date(`1970-01-01T${horaFin}:00`)
+    if (horaFn <= horaIni) {
+      setError('La hora de fin debe ser posterior a la de inicio.')
       return
     }
 
@@ -241,25 +241,35 @@ function Disponibilidad() {
         ? especialidades[0].id_especialidad
         : null
 
-    const { error: insertError } = await supabase.from('horarios_disponibles').insert({
-      id_profesional: user.id,
-      id_especialidad: idEspFinal,
-      fecha_inicio: inicio.toISOString(),
-      fecha_fin: fin.toISOString(),
-      estado: 'disponible',
-      creado_por: user.id,
+    if (!idEspFinal) {
+      setSaving(false)
+      setError('Selecciona una especialidad.')
+      return
+    }
+
+    const { data, error } = await supabase.rpc('fn_generar_bloques_jornada', {
+      p_id_especialidad: idEspFinal,
+      p_fecha_inicio: fechaInicio,
+      p_fecha_fin: fechaFin,
+      p_hora_inicio: horaInicio,
+      p_hora_fin: horaFin,
+      p_dias: diasSemana,
     })
 
     setSaving(false)
 
-    if (insertError) {
-      setError(insertError.message || 'No se pudo publicar el bloque.')
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo publicar la jornada.')
       return
     }
 
-    setSuccess('Bloque de disponibilidad publicado.')
+    setSuccess(
+      `Jornada publicada: ${data.generados} bloques de 15 minutos generados.`,
+    )
     setFechaInicio('')
     setFechaFin('')
+    setHoraInicio('')
+    setHoraFin('')
     setEspecialidad('')
     await loadData()
   }
@@ -557,75 +567,130 @@ function Disponibilidad() {
             )}
           </div>
 
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <div>
-                <h3>Publicar bloque</h3>
-                <p className="dash-muted">
-                  El profesional define cuándo está disponible para atender
-                </p>
+<div className="dash-card">
+              <div className="dash-card-header">
+                <div>
+                  <h3>Publicar jornada</h3>
+                  <p className="dash-muted">
+                    Define tu jornada de atención y se divide en bloques de 15 minutos
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <form className="dash-form" onSubmit={(e) => void crearBloque(e)}>
-              {especialidades.length > 1 ? (
+              <form className="dash-form" onSubmit={(e) => void crearBloque(e)}>
+                {especialidades.length > 1 ? (
+                  <div className="dash-field">
+                    <label htmlFor="disp-especialidad">Especialidad</label>
+                    <select
+                      id="disp-especialidad"
+                      value={especialidad}
+                      onChange={(e) => setEspecialidad(e.target.value)}
+                    >
+                      <option value="">Selecciona una especialidad</option>
+                      {especialidades.map((e) => (
+                        <option key={e.id_especialidad} value={String(e.id_especialidad)}>
+                          {e.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : especialidades.length === 1 ? (
+                  <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
+                    Especialidad: <strong>{especialidades[0].nombre}</strong>
+                  </p>
+                ) : null}
+
+                <div className="dash-row">
+                  <div className="dash-field">
+                    <label htmlFor="disp-inicio">Desde</label>
+                    <input
+                      id="disp-inicio"
+                      type="date"
+                      value={fechaInicio}
+                      onChange={(e) => setFechaInicio(e.target.value)}
+                      required
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="dash-field">
+                    <label htmlFor="disp-fin">Hasta</label>
+                    <input
+                      id="disp-fin"
+                      type="date"
+                      value={fechaFin}
+                      onChange={(e) => setFechaFin(e.target.value)}
+                      required
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+
+                <div className="dash-row">
+                  <div className="dash-field">
+                    <label htmlFor="disp-hora-ini">Hora de inicio</label>
+                    <input
+                      id="disp-hora-ini"
+                      type="time"
+                      value={horaInicio}
+                      onChange={(e) => setHoraInicio(e.target.value)}
+                      required
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="dash-field">
+                    <label htmlFor="disp-hora-fin">Hora de fin</label>
+                    <input
+                      id="disp-hora-fin"
+                      type="time"
+                      value={horaFin}
+                      onChange={(e) => setHoraFin(e.target.value)}
+                      required
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+
                 <div className="dash-field">
-                  <label htmlFor="disp-especialidad">Especialidad</label>
-                  <select
-                    id="disp-especialidad"
-                    value={especialidad}
-                    onChange={(e) => setEspecialidad(e.target.value)}
-                  >
-                    <option value="">Selecciona una especialidad</option>
-                    {especialidades.map((e) => (
-                      <option key={e.id_especialidad} value={String(e.id_especialidad)}>
-                        {e.nombre}
-                      </option>
+                  <label>Días de la semana</label>
+                  <div className="jornada-dias">
+                    {[
+                      { n: 'Lun', v: 1 },
+                      { n: 'Mar', v: 2 },
+                      { n: 'Mié', v: 3 },
+                      { n: 'Jue', v: 4 },
+                      { n: 'Vie', v: 5 },
+                      { n: 'Sáb', v: 6 },
+                    ].map((d) => (
+                      <label key={d.v} className="jornada-dia">
+                        <input
+                          type="checkbox"
+                          checked={diasSemana.includes(d.v)}
+                          onChange={() =>
+                            setDiasSemana((prev) =>
+                              prev.includes(d.v)
+                                ? prev.filter((x) => x !== d.v)
+                                : [...prev, d.v],
+                            )
+                          }
+                          disabled={saving}
+                        />
+                        {d.n}
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
-              ) : especialidades.length === 1 ? (
-                <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
-                  Especialidad: <strong>{especialidades[0].nombre}</strong>
-                </p>
-              ) : null}
 
-              <div className="dash-row">
-                <div className="dash-field">
-                  <label htmlFor="disp-inicio">Fecha y hora de inicio</label>
-                  <input
-                    id="disp-inicio"
-                    type="datetime-local"
-                    value={fechaInicio}
-                    onChange={(e) => setFechaInicio(e.target.value)}
-                    required
+                <div className="dash-form-actions">
+                  <button
+                    type="submit"
+                    className="dash-btn-primary"
                     disabled={saving}
-                  />
+                  >
+                    {saving ? 'Publicando…' : 'Publicar jornada'}
+                  </button>
                 </div>
-                <div className="dash-field">
-                  <label htmlFor="disp-fin">Fecha y hora de fin</label>
-                  <input
-                    id="disp-fin"
-                    type="datetime-local"
-                    value={fechaFin}
-                    onChange={(e) => setFechaFin(e.target.value)}
-                    required
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-
-              <div className="dash-form-actions">
-                <button
-                  type="submit"
-                  className="dash-btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? 'Publicando…' : 'Publicar bloque'}
-                </button>
-              </div>
-            </form>
-          </div>
+              </form>
+            </div>
 
           <div className="dash-card">
             <div className="dash-card-header">

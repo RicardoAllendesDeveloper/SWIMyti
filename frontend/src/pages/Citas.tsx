@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import {
-  puedeReservar,
-  puedeGestionarCitas,
-} from '../utils/permisos'
+import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
+import { puedeGestionarCitas } from '../utils/permisos'
 import type { Especialidad, HorarioDisponible } from '../types/database'
 import '../styles/Citas.css'
 
@@ -29,10 +27,11 @@ function Citas() {
   const { rol } = useAuthRol()
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [especialidadFiltro, setEspecialidadFiltro] = useState('')
+  const [profesionales, setProfesionales] = useState<{ id_usuario: string; nombre: string }[]>([])
+  const [profesionalFiltro, setProfesionalFiltro] = useState('')
   const [horarios, setHorarios] = useState<HorarioDisponible[]>([])
   const [pacientes, setPacientes] = useState<{ id_paciente: number; nombres: string; apellidos: string; rut: string }[]>([])
   const [idPacienteGestion, setIdPacienteGestion] = useState('')
-  const [misCitas, setMisCitas] = useState<{ id_cita: number; id_horario: number; fecha_inicio: string }[]>([])
   const [citasGestion, setCitasGestion] = useState<
     { id_cita: number; id_horario: number; id_paciente: number; fecha_inicio: string; paciente_nombre: string; estado: string; llegada?: string }[]
   >([])
@@ -80,6 +79,43 @@ function Citas() {
     if (especialidadFiltro) {
       query = query.eq('id_especialidad', Number(especialidadFiltro))
     }
+    if (profesionalFiltro) {
+      query = query.eq('id_profesional', profesionalFiltro)
+    }
+
+    // Cargar profesionales de la especialidad seleccionada (para el filtro)
+    if (especialidadFiltro) {
+      const profQuery = supabase
+        .from('horarios_disponibles')
+        .select(
+          `
+          id_profesional,
+          usuarios:id_profesional ( nombres, apellidos )
+        `,
+        )
+        .eq('estado', 'disponible')
+        .gte('fecha_inicio', new Date().toISOString())
+        .eq('id_especialidad', Number(especialidadFiltro))
+
+      const profRes = await profQuery
+      if (!profRes.error) {
+        const vistos = new Set<string>()
+        const lista: { id_usuario: string; nombre: string }[] = []
+        for (const row of profRes.data ?? []) {
+          const u = asSingle(row.usuarios)
+          const id = row.id_profesional as string
+          if (!id || vistos.has(id)) continue
+          vistos.add(id)
+          lista.push({
+            id_usuario: id,
+            nombre: u ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim() : 'Profesional',
+          })
+        }
+        setProfesionales(lista)
+      }
+    } else {
+      setProfesionales([])
+    }
 
     const { data, error } = await query
     if (error) {
@@ -88,7 +124,7 @@ function Citas() {
       return
     }
     setHorarios((data ?? []) as unknown as HorarioDisponible[])
-  }, [especialidadFiltro])
+  }, [especialidadFiltro, profesionalFiltro])
 
   const cargarMisCitas = useCallback(async () => {
     if (gestiona) {
@@ -135,7 +171,6 @@ function Citas() {
           }
         })
         setCitasGestion(rows)
-        setMisCitas([])
       }
       return
     }
@@ -145,25 +180,7 @@ function Citas() {
     } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data, error } = await supabase
-      .from('citas')
-      .select(
-        `
-        id_cita,
-        id_horario,
-        horarios_disponibles ( fecha_inicio )
-      `,
-      )
-      .eq('estado', 'reservada')
-
-    if (!error) {
-      const rows = (data ?? []).map((r) => ({
-        id_cita: r.id_cita as number,
-        id_horario: r.id_horario as number,
-        fecha_inicio: asSingle(r.horarios_disponibles)?.fecha_inicio as string,
-      }))
-      setMisCitas(rows)
-    }
+    return
   }, [gestiona])
 
   const loadData = useCallback(async () => {
@@ -296,26 +313,6 @@ function Citas() {
     await loadData()
   }
 
-  function nombreProfesional(h: HorarioDisponible): string {
-    const u = asSingle(h.usuarios)
-    if (u && (u.nombres || u.apellidos)) {
-      const rolVal = Array.isArray(u.roles)
-        ? u.roles?.[0]?.nombre_rol
-        : u.roles?.nombre_rol
-      const prefijo = rolVal === 'doctor' ? 'Dr(a). ' : rolVal === 'enfermeria' ? 'EU. ' : ''
-      return `${prefijo}${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
-    }
-    return 'Profesional'
-  }
-
-  function nombreEspecialidad(h: HorarioDisponible): string {
-    const e = asSingle(h.especialidades)
-    return e?.nombre ?? 'Sin especialidad'
-  }
-
-  const yaReservado = (idHorario: number) =>
-    misCitas.some((c) => c.id_horario === idHorario)
-
   function claveDia(value: string): string {
     const d = new Date(value)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -379,13 +376,17 @@ function Citas() {
               <div>
                 <h3>Horas disponibles</h3>
                 <p className="dash-muted">
-                  Bloques publicados por los profesionales
+                  Elige el día y la hora de tu atención. Los días con horas
+                  disponibles se muestran en verde.
                 </p>
               </div>
               <select
                 className="citas-filtro"
                 value={especialidadFiltro}
-                onChange={(e) => setEspecialidadFiltro(e.target.value)}
+                onChange={(e) => {
+                  setEspecialidadFiltro(e.target.value)
+                  setProfesionalFiltro('')
+                }}
                 aria-label="Filtrar por especialidad"
               >
                 <option value="">Todas las especialidades</option>
@@ -395,6 +396,21 @@ function Citas() {
                   </option>
                 ))}
               </select>
+              {especialidadFiltro && profesionales.length > 1 ? (
+                <select
+                  className="citas-filtro"
+                  value={profesionalFiltro}
+                  onChange={(e) => setProfesionalFiltro(e.target.value)}
+                  aria-label="Filtrar por profesional"
+                >
+                  <option value="">Todos los profesionales</option>
+                  {profesionales.map((p) => (
+                    <option key={p.id_usuario} value={p.id_usuario}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               {gestiona ? (
                 <select
                   className="citas-filtro"
@@ -419,48 +435,14 @@ function Citas() {
                 No hay horas disponibles con los filtros actuales. Vuelve pronto.
               </p>
             ) : (
-              <div className="dash-table-wrap">
-                <table className="dash-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha y hora</th>
-                      <th>Profesional</th>
-                      <th>Especialidad</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {horarios.map((h) => {
-                      const reservado = yaReservado(h.id_horario)
-                      return (
-                        <tr key={h.id_horario}>
-                          <td>{formatFechaHora(h.fecha_inicio)}</td>
-                          <td>{nombreProfesional(h)}</td>
-                          <td>{nombreEspecialidad(h)}</td>
-                          <td>
-                            <button
-                              type="button"
-                              className="dash-btn-primary"
-                              onClick={() => void reservar(h.id_horario)}
-                              disabled={
-                                reservando === h.id_horario ||
-                                reservado ||
-                                !puedeReservar(rol)
-                              }
-                            >
-                              {reservando === h.id_horario
-                                ? 'Reservando…'
-                                : reservado
-                                  ? 'Ya reservada'
-                                  : 'Reservar'}
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <CalendarioDisponibilidad
+                bloques={horarios.map((h) => ({
+                  id_horario: h.id_horario,
+                  fecha_inicio: h.fecha_inicio,
+                }))}
+                onReservar={(idHorario, _fecha) => void reservar(idHorario)}
+                confirmandoId={reservando}
+              />
             )}
           </div>
 
