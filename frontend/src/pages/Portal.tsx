@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
 import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
@@ -68,6 +69,7 @@ type Certificado = {
 }
 
 function Portal() {
+  const navigate = useNavigate()
   const [citas, setCitas] = useState<Cita[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
@@ -78,6 +80,7 @@ function Portal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<number | null>(null)
+  const [cambiando, setCambiando] = useState<number | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [bloquesToma, setBloquesToma] = useState<
     { id_horario: number; fecha_inicio: string }[]
@@ -232,6 +235,31 @@ function Portal() {
 
     setSuccess('Cita cancelada. El horario vuelve a estar disponible.')
     await loadData()
+  }
+
+  async function cambiarHoraCita(idCita: number) {
+    const confirmado = window.confirm(
+      '¿Deseas cambiar la hora de tu cita? Se liberará tu hora actual y podrás elegir otra.',
+    )
+    if (!confirmado) return
+
+    setError(null)
+    setSuccess(null)
+    setCambiando(idCita)
+
+    const { data, error } = await supabase.rpc('fn_paciente_liberar_cita', {
+      p_id_cita: idCita,
+    })
+
+    setCambiando(null)
+
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo cambiar la hora.')
+      return
+    }
+
+    setSuccess('Tu cita fue liberada. Elige una nueva hora disponible.')
+    navigate('/citas')
   }
 
   function especialidadCita(cita: Cita): string {
@@ -464,18 +492,30 @@ function Portal() {
                             Date.now() <
                             60 * 60 * 1000 ? (
                             <p className="portal-muted">
-                              No puedes cancelar: faltan menos de 60 minutos para tu
-                              atención.
+                              No puedes cancelar ni cambiar: faltan menos de 60
+                              minutos para tu atención.
                             </p>
                           ) : (
-                            <button
-                              type="button"
-                              className="dash-btn-secondary"
-                              onClick={() => void cancelarCita(cita.id_cita)}
-                              disabled={cancelando === cita.id_cita}
-                            >
-                              {cancelando === cita.id_cita ? 'Cancelando…' : 'Cancelar'}
-                            </button>
+                            <div className="portal-acciones-fila">
+                              <button
+                                type="button"
+                                className="dash-btn-secondary"
+                                onClick={() => void cambiarHoraCita(cita.id_cita)}
+                                disabled={cambiando === cita.id_cita}
+                              >
+                                {cambiando === cita.id_cita
+                                  ? 'Cambiando…'
+                                  : 'Cambiar hora'}
+                              </button>
+                              <button
+                                type="button"
+                                className="dash-btn-secondary"
+                                onClick={() => void cancelarCita(cita.id_cita)}
+                                disabled={cancelando === cita.id_cita}
+                              >
+                                {cancelando === cita.id_cita ? 'Cancelando…' : 'Cancelar'}
+                              </button>
+                            </div>
                           )
                         ) : null}
                       </li>
