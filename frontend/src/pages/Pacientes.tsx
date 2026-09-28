@@ -48,6 +48,7 @@ function Pacientes() {
   const [anexoPaciente, setAnexoPaciente] = useState<Paciente | null>(null)
   const [tipoAnexo, setTipoAnexo] = useState('laboratorio')
   const [descripcionAnexo, setDescripcionAnexo] = useState('')
+  const [archivoAnexo, setArchivoAnexo] = useState<File | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -248,6 +249,7 @@ function Pacientes() {
     setAnexoPaciente(paciente)
     setTipoAnexo('laboratorio')
     setDescripcionAnexo('')
+    setArchivoAnexo(null)
     setShowAnexo(true)
   }
 
@@ -255,6 +257,7 @@ function Pacientes() {
     if (saving) return
     setShowAnexo(false)
     setAnexoPaciente(null)
+    setArchivoAnexo(null)
   }
 
   async function handleRegistrarAnexo(event: FormEvent<HTMLFormElement>) {
@@ -272,16 +275,41 @@ function Pacientes() {
       return
     }
 
-    const nombreArchivo = `Anexo ${tipoAnexo}`
-    const urlSimbolica = `local://anexos/${anexoPaciente.id_paciente}/${tipoAnexo}/${Date.now()}`
+    if (!archivoAnexo) {
+      setError('Selecciona un archivo para adjuntar.')
+      return
+    }
 
     setSaving(true)
+
+    // 1) Subir el archivo real a Supabase Storage (carpeta por paciente)
+    const ruta = `${anexoPaciente.id_paciente}/${Date.now()}_${archivoAnexo.name}`
+    const { error: uploadError } = await supabase.storage
+      .from('anexos')
+      .upload(ruta, archivoAnexo, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      setSaving(false)
+      setError(uploadError.message || 'No se pudo subir el archivo.')
+      return
+    }
+
+    // 2) URL pública del archivo subido
+    const { data: urlData } = supabase.storage
+      .from('anexos')
+      .getPublicUrl(ruta)
+    const urlPublica = urlData?.publicUrl ?? ''
+
+    // 3) Registrar el anexo en la tabla
     const { error: insError } = await supabase.from('anexos_clinicos').insert({
       id_paciente: anexoPaciente.id_paciente,
       id_usuario_subida: user.id,
-      nombre_archivo: nombreArchivo,
-      tipo_mime: 'application/octet-stream',
-      url_documento: urlSimbolica,
+      nombre_archivo: archivoAnexo.name,
+      tipo_mime: archivoAnexo.type || 'application/octet-stream',
+      url_documento: urlPublica,
       descripcion: descripcionAnexo.trim() || null,
       tipo_anexo: tipoAnexo,
     })
@@ -293,10 +321,11 @@ function Pacientes() {
     }
 
     setSuccess(
-      `Anexo registrado para ${anexoPaciente.nombres} ${anexoPaciente.apellidos}.`,
+      `Anexo ${archivoAnexo.name} registrado para ${anexoPaciente.nombres} ${anexoPaciente.apellidos}.`,
     )
     setShowAnexo(false)
     setAnexoPaciente(null)
+    setArchivoAnexo(null)
   }
 
   const pacientesFiltrados = pacientes.filter((p) => {
@@ -801,6 +830,23 @@ function Pacientes() {
                   <option value="informe">Informe</option>
                   <option value="otro">Otro</option>
                 </select>
+              </div>
+
+              <div className="pac-field">
+                <label htmlFor="anexo-archivo">Archivo</label>
+                <input
+                  id="anexo-archivo"
+                  type="file"
+                  onChange={(e) => setArchivoAnexo(e.target.files?.[0] ?? null)}
+                  required
+                  disabled={saving}
+                />
+                {archivoAnexo ? (
+                  <p className="pac-field-hint">
+                    Archivo seleccionado: {archivoAnexo.name} (
+                    {(archivoAnexo.size / 1024).toFixed(1)} KB)
+                  </p>
+                ) : null}
               </div>
 
               <div className="pac-field">

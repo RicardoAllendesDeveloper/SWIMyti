@@ -739,6 +739,19 @@ function Expediente() {
                     <p className="df-enmienda-texto">
                       {a.descripcion || a.nombre_archivo || 'Documento'}
                     </p>
+                    {a.url_documento ? (
+                      <p className="df-enmienda-autor">
+                        <a
+                          href={a.url_documento}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="df-btn-secondary"
+                          style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
+                        >
+                          Ver / descargar documento
+                        </a>
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>

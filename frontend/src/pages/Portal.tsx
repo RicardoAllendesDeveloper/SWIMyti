@@ -457,6 +457,17 @@ function Portal() {
                             <p className="portal-muted">{a.descripcion}</p>
                           ) : null}
                           <p className="portal-muted">{formatFecha(a.created_at)}</p>
+                          {a.url_documento ? (
+                            <a
+                              href={a.url_documento}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="dash-btn-secondary"
+                              style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
+                            >
+                              Ver / descargar
+                            </a>
+                          ) : null}
                         </div>
                       </li>
                     ))}
