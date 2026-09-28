@@ -75,7 +75,6 @@ function Portal() {
   const [interconsultas, setInterconsultas] = useState<Interconsulta[]>([])
   const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [pacienteNombre, setPacienteNombre] = useState('')
-  const [idPacienteEstado, setIdPacienteEstado] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<number | null>(null)
@@ -115,7 +114,6 @@ function Portal() {
     }
 
     setPacienteNombre(`${pac.nombres} ${pac.apellidos}`)
-    setIdPacienteEstado(pac.id_paciente)
 
     const [citasRes, recRes, certRes, anexRes, icRes, ordRes, horRes] = await Promise.all([
       supabase
@@ -273,53 +271,20 @@ function Portal() {
       return
     }
 
-    const idPaciente = idPacienteEstado
-    if (!idPaciente) {
-      setConfirmando(null)
-      setError('No se pudo identificar tu perfil de paciente.')
-      return
-    }
-
-    // 1) Crear la cita sobre el bloque disponible
-    const { error: insertError } = await supabase.from('citas').insert({
-      id_horario: idHorario,
-      id_paciente: idPaciente,
-      motivo: 'Toma de muestra',
-      estado: 'reservada',
+    const { data, error } = await supabase.rpc('fn_paciente_reservar_toma_muestra', {
+      p_id_orden: orden.id_orden,
+      p_id_horario: idHorario,
     })
-
-    if (insertError) {
-      setConfirmando(null)
-      const msg = insertError.message.toLowerCase()
-      if (msg.includes('ya no está disponible')) {
-        setError('Ese horario acaba de ser reservado. Elige otro.')
-      } else {
-        setError(
-          insertError.message ||
-            'Hubo un error al agendar tu hora. Por favor reintenta más tarde.',
-        )
-      }
-      await loadData()
-      return
-    }
-
-    // 2) Marcar la orden como agendada con la fecha del bloque
-    const bloque = bloquesToma.find((b) => b.id_horario === idHorario)
-    const fechaBloque = bloque?.fecha_inicio ?? null
-
-    const { error: updError } = await supabase
-      .from('ordenes_examen')
-      .update({
-        toma_muestra: 'agendada',
-        fecha_toma_muestra: fechaBloque,
-        id_horario: idHorario,
-      })
-      .eq('id_orden', orden.id_orden)
 
     setConfirmando(null)
 
-    if (updError) {
-      setError(updError.message || 'Tu hora se reservó, pero no se pudo marcar la orden.')
+    if (error || !data?.ok) {
+      const msg = error?.message || data?.error || 'No se pudo agendar la hora.'
+      if (msg.toLowerCase().includes('ya no está disponible')) {
+        setError('Ese horario acaba de ser reservado. Elige otro.')
+      } else {
+        setError(msg)
+      }
       await loadData()
       return
     }
@@ -332,29 +297,12 @@ function Portal() {
     setError(null)
     setSuccess(null)
 
-    // 1) Cancelar la cita asociada (el trigger libera el bloque)
-    if (orden.id_horario) {
-      const { error: citaError } = await supabase
-        .from('citas')
-        .update({ estado: 'cancelada' })
-        .eq('id_horario', orden.id_horario)
-        .eq('id_paciente', idPacienteEstado)
-        .eq('estado', 'reservada')
+    const { data, error } = await supabase.rpc('fn_paciente_liberar_toma_muestra', {
+      p_id_orden: orden.id_orden,
+    })
 
-      if (citaError) {
-        setError(citaError.message || 'No se pudo cancelar la cita de la toma de muestra.')
-        return
-      }
-    }
-
-    // 2) Marcar la orden como pendiente
-    const { error } = await supabase
-      .from('ordenes_examen')
-      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null, id_horario: null })
-      .eq('id_orden', orden.id_orden)
-
-    if (error) {
-      setError(error.message || 'No se pudo cancelar la toma de muestra.')
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo cancelar la toma de muestra.')
       return
     }
     setSuccess('Toma de muestra cancelada. El horario vuelve a estar disponible.')
@@ -370,29 +318,12 @@ function Portal() {
     )
     if (!confirmar) return
 
-    // 1) Cancelar la cita asociada (el trigger libera el bloque)
-    if (orden.id_horario) {
-      const { error: citaError } = await supabase
-        .from('citas')
-        .update({ estado: 'cancelada' })
-        .eq('id_horario', orden.id_horario)
-        .eq('id_paciente', idPacienteEstado)
-        .eq('estado', 'reservada')
+    const { data, error } = await supabase.rpc('fn_paciente_liberar_toma_muestra', {
+      p_id_orden: orden.id_orden,
+    })
 
-      if (citaError) {
-        setError(citaError.message || 'No se pudo liberar tu hora actual.')
-        return
-      }
-    }
-
-    // 2) Marcar la orden como pendiente para volver a elegir hora
-    const { error } = await supabase
-      .from('ordenes_examen')
-      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null, id_horario: null })
-      .eq('id_orden', orden.id_orden)
-
-    if (error) {
-      setError(error.message || 'No se pudo cambiar la hora.')
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo cambiar la hora.')
       return
     }
     setSuccess('Tu hora fue liberada. Elige una nueva hora disponible.')
