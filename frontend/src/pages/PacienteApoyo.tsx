@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
+import Sidebar from '../components/Sidebar'
 import type { AnexoClinico, OrdenExamen } from '../types/database'
 import '../styles/PacienteApoyo.css'
 
@@ -30,83 +30,63 @@ const TIPO_ANEXO_LABEL: Record<string, string> = {
   otro: 'Otro',
 }
 
-function PacienteApoyo() {
-  const { idPaciente } = useParams<{ idPaciente: string }>()
-  const navigate = useNavigate()
+type OrdenConAnexos = OrdenExamen & {
+  anexos?: AnexoClinico[]
+}
 
-  const [paciente, setPaciente] = useState<{
-    id_paciente: number
-    rut: string
-    prevision: string | null
-    nombres: string
-    apellidos: string
-    telefono: string | null
-  } | null>(null)
-  const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
-  const [anexos, setAnexos] = useState<AnexoClinico[]>([])
+function BandejaOrdenes() {
+  const [ordenes, setOrdenes] = useState<OrdenConAnexos[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  // Formulario de anexo
-  const [tipoAnexo, setTipoAnexo] = useState('laboratorio')
-  const [descripcionAnexo, setDescripcionAnexo] = useState('')
-  const [archivoAnexo, setArchivoAnexo] = useState<File | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
 
   const loadData = useCallback(async () => {
-    if (!idPaciente || Number.isNaN(Number(idPaciente))) {
-      setError('Identificador de paciente inválido.')
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
-    const idPac = Number(idPaciente)
 
-    const [pacRes, ordRes, anexRes] = await Promise.all([
-      supabase
-        .from('pacientes')
-        .select('id_paciente, rut, prevision, nombres, apellidos, telefono')
-        .eq('id_paciente', idPac)
-        .maybeSingle(),
-      supabase
-        .from('ordenes_examen')
-        .select(
-          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, estado, created_at',
-        )
-        .eq('id_paciente', idPac)
-        .eq('enviada_a_apoyo', true)
-        .neq('estado', 'cancelada')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('anexos_clinicos')
-        .select(
-          'id_anexo, id_paciente, nombre_archivo, tipo_mime, url_documento, descripcion, tipo_anexo, created_at',
-        )
-        .eq('id_paciente', idPac)
-        .order('created_at', { ascending: false }),
-    ])
+    // Órdenes enviadas al laboratorio (en_recinto), no canceladas
+    const { data, error: err } = await supabase
+      .from('ordenes_examen')
+      .select(
+        'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, modalidad, toma_muestra, fecha_toma_muestra, estado, created_at, pacientes(nombres, apellidos, rut)',
+      )
+      .eq('enviada_a_apoyo', true)
+      .neq('estado', 'cancelada')
+      .order('created_at', { ascending: false })
 
-    if (pacRes.error || !pacRes.data) {
-      setError(pacRes.error?.message || 'Paciente no encontrado.')
-      setLoading(false)
-      return
+    if (err) {
+      setError(err.message || 'No se pudieron cargar las órdenes.')
+      setOrdenes([])
+    } else {
+      const rows = (data ?? []) as unknown as OrdenConAnexos[]
+      // Cargar anexos de cada paciente involucrado para mostrar resultados
+      const pacientesIds = [...new Set(rows.map((o) => o.id_paciente))]
+      const anexosMap = new Map<number, AnexoClinico[]>()
+      if (pacientesIds.length > 0) {
+        const { data: anexosData } = await supabase
+          .from('anexos_clinicos')
+          .select(
+            'id_anexo, id_paciente, nombre_archivo, tipo_mime, url_documento, descripcion, tipo_anexo, created_at',
+          )
+          .in('id_paciente', pacientesIds)
+          .order('created_at', { ascending: false })
+        if (anexosData) {
+          for (const a of anexosData as unknown as AnexoClinico[]) {
+            const idPac = a.id_paciente as number | undefined
+            if (idPac === undefined) continue
+            const lista = anexosMap.get(idPac) ?? []
+            lista.push(a)
+            anexosMap.set(idPac, lista)
+          }
+        }
+      }
+      setOrdenes(rows.map((o) => ({ ...o, anexos: anexosMap.get(o.id_paciente) ?? [] })))
     }
-    setPaciente({
-      id_paciente: pacRes.data.id_paciente as number,
-      rut: pacRes.data.rut as string,
-      prevision: (pacRes.data.prevision as string | null) ?? null,
-      nombres: pacRes.data.nombres as string,
-      apellidos: pacRes.data.apellidos as string,
-      telefono: (pacRes.data.telefono as string | null) ?? null,
-    })
-
-    if (!ordRes.error) setOrdenes((ordRes.data ?? []) as unknown as OrdenExamen[])
-    if (!anexRes.error) setAnexos((anexRes.data ?? []) as unknown as AnexoClinico[])
-
     setLoading(false)
-  }, [idPaciente])
+  }, [])
 
   useEffect(() => {
     void loadData()
@@ -115,12 +95,15 @@ function PacienteApoyo() {
   async function cambiarEstado(orden: OrdenExamen, estado: OrdenExamen['estado']) {
     setError(null)
     setSuccess(null)
-    setSaving(true)
+    setSaving(orden.id_orden)
+
     const { error: updError } = await supabase
       .from('ordenes_examen')
       .update({ estado })
       .eq('id_orden', orden.id_orden)
-    setSaving(false)
+
+    setSaving(null)
+
     if (updError) {
       setError(updError.message || 'No se pudo actualizar la orden.')
       return
@@ -133,260 +116,275 @@ function PacienteApoyo() {
     await loadData()
   }
 
-  async function handleSubirResultado(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    setSuccess(null)
+  const pendientes = ordenes.filter(
+    (o) => o.estado === 'pendiente' || o.estado === 'en_proceso',
+  )
+  const completadas = ordenes.filter((o) => o.estado === 'completada')
 
-    if (!paciente) return
-    if (!archivoAnexo) {
-      setError('Selecciona un archivo para adjuntar.')
-      return
-    }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setError('Sesión no válida.')
-      return
-    }
+  // Órdenes ordenadas: primero las con toma de muestra agendada (por hora), luego el resto
+  const ordenadas = [...pendientes].sort((a, b) => {
+    const fa = a.fecha_toma_muestra ? new Date(a.fecha_toma_muestra).getTime() : Infinity
+    const fb = b.fecha_toma_muestra ? new Date(b.fecha_toma_muestra).getTime() : Infinity
+    return fa - fb
+  })
 
-    setSaving(true)
-
-    const ruta = `${paciente.id_paciente}/${Date.now()}_${archivoAnexo.name}`
-    const { error: uploadError } = await supabase.storage
-      .from('anexos')
-      .upload(ruta, archivoAnexo, { cacheControl: '3600', upsert: false })
-
-    if (uploadError) {
-      setSaving(false)
-      setError(uploadError.message || 'No se pudo subir el archivo.')
-      return
-    }
-
-    const { data: urlData } = supabase.storage.from('anexos').getPublicUrl(ruta)
-    const urlPublica = urlData?.publicUrl ?? ''
-
-    const { error: insError } = await supabase.from('anexos_clinicos').insert({
-      id_paciente: paciente.id_paciente,
-      id_usuario_subida: user.id,
-      nombre_archivo: archivoAnexo.name,
-      tipo_mime: archivoAnexo.type || 'application/octet-stream',
-      url_documento: urlPublica,
-      descripcion: descripcionAnexo.trim() || null,
-      tipo_anexo: tipoAnexo,
-    })
-    setSaving(false)
-
-    if (insError) {
-      setError(insError.message || 'No se pudo registrar el resultado.')
-      return
-    }
-
-    setSuccess('Resultado del examen subido correctamente.')
-    setArchivoAnexo(null)
-    setDescripcionAnexo('')
-    setTipoAnexo('laboratorio')
-    await loadData()
-  }
-
-  if (loading) {
-    return (
-      <div className="pa">
-        <div className="pa-header">
-          <button type="button" className="pa-back" onClick={() => navigate('/pacientes')}>
-            ← Volver a pacientes
-          </button>
-        </div>
-        <main className="pa-content">
-          <p className="pa-loading">Cargando paciente…</p>
-        </main>
-      </div>
-    )
-  }
-
-  if (!paciente) {
-    return (
-      <div className="pa">
-        <div className="pa-header">
-          <button type="button" className="pa-back" onClick={() => navigate('/pacientes')}>
-            ← Volver a pacientes
-          </button>
-        </div>
-        <main className="pa-content">
-          <p className="pa-alert pa-alert-error" role="alert">{error ?? 'Paciente no disponible.'}</p>
-        </main>
-      </div>
-    )
-  }
+  const visibles = (mostrarCompletadas ? [...ordenadas, ...completadas] : ordenadas).filter(
+    (o) => {
+      if (!busqueda.trim()) return true
+      const q = busqueda.trim().toLowerCase()
+      return `${o.tipo_examen} ${o.indicaciones ?? ''} ${o.pacientes?.nombres ?? ''} ${o.pacientes?.apellidos ?? ''} ${o.pacientes?.rut ?? ''}`
+        .toLowerCase()
+        .includes(q)
+    },
+  )
 
   return (
-    <div className="pa">
-      <header className="pa-header">
-        <button type="button" className="pa-back" onClick={() => navigate('/pacientes')}>
-          ← Volver a pacientes
-        </button>
-        <div className="pa-header-title">
-          <h1>{paciente.apellidos}, {paciente.nombres}</h1>
-          <p>
-            RUT {paciente.rut} · Previsión {paciente.prevision ?? '—'} · Teléfono {paciente.telefono ?? '—'}
-          </p>
-        </div>
-      </header>
+    <div className="dash">
+      <Sidebar moduloActivo="pacientes" />
 
-      <main className="pa-content">
-        {error ? (
-          <p className="pa-alert pa-alert-error" role="alert">{error}</p>
-        ) : null}
-        {success ? (
-          <p className="pa-alert pa-alert-success" role="status">{success}</p>
-        ) : null}
-
-        <section className="pa-card" aria-labelledby="ordenes-title">
-          <div className="pa-card-header">
-            <h2 id="ordenes-title">Órdenes de examen</h2>
-            <span className="pa-badge">{ordenes.length}</span>
+      <div className="dash-main">
+        <header className="dash-topbar">
+          <div>
+            <h2>Bandeja de órdenes de examen</h2>
+            <p>Órdenes enviadas por los profesionales, ordenadas por toma de muestra</p>
           </div>
-          <div className="pa-card-body">
-            {ordenes.length === 0 ? (
-              <p className="pa-empty">Este paciente no tiene órdenes de examen enviadas a esta unidad.</p>
-            ) : (
-              <div className="pa-list">
-                {ordenes.map((o) => (
-                  <div key={o.id_orden} className="pa-item">
-                    <div className="pa-item-top">
-                      <span className="pa-chip">{o.tipo_examen}</span>
-                      <span className={`pa-estado pa-estado-${o.estado}`}>
-                        {ESTADO_LABEL[o.estado] ?? o.estado}
-                      </span>
-                    </div>
-                    {o.indicaciones ? (
-                      <p className="pa-muted">Indicaciones: {o.indicaciones}</p>
-                    ) : null}
-                    <p className="pa-muted">{formatFechaHora(o.created_at)}</p>
-                    {o.estado === 'pendiente' || o.estado === 'en_proceso' ? (
-                      <div className="pa-acciones">
-                        {o.estado === 'pendiente' ? (
-                          <button
-                            type="button"
-                            className="pa-btn-secondary"
-                            onClick={() => void cambiarEstado(o, 'en_proceso')}
-                            disabled={saving}
-                          >
-                            Iniciar
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="pa-btn-primary"
-                          onClick={() => void cambiarEstado(o, 'completada')}
-                          disabled={saving}
-                        >
-                          Completar
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+          <span className="dash-badge">
+            {loading ? '…' : `${pendientes.length} pendiente${pendientes.length === 1 ? '' : 's'}`}
+          </span>
+        </header>
+
+        <section className="dash-content">
+          {error ? (
+            <p className="dash-alert dash-alert-error" role="alert">{error}</p>
+          ) : null}
+          {success ? (
+            <p className="dash-alert dash-alert-success" role="status">{success}</p>
+          ) : null}
+
+          {!loading && pendientes.length > 0 ? (
+            <p className="bandeja-aviso">
+              Hay {pendientes.length} órdenes por atender. Las que tienen toma de muestra
+              agendada aparecen primero, en orden de hora.
+            </p>
+          ) : null}
+
+          <div className="dash-card">
+            <div className="dash-card-header">
+              <div>
+                <h3>Órdenes de trabajo</h3>
+                <p className="dash-muted">
+                  {mostrarCompletadas ? 'Pendientes y completadas' : 'Solo pendientes'}
+                </p>
               </div>
-            )}
-          </div>
-        </section>
-
-        <section className="pa-card" aria-labelledby="resultados-title">
-          <div className="pa-card-header">
-            <h2 id="resultados-title">Resultados subidos</h2>
-            <span className="pa-badge">{anexos.length}</span>
-          </div>
-          <div className="pa-card-body">
-            {anexos.length === 0 ? (
-              <p className="pa-empty">Aún no se han subido resultados para este paciente.</p>
-            ) : (
-              <div className="pa-list">
-                {anexos.map((a) => (
-                  <div key={a.id_anexo} className="pa-item">
-                    <div className="pa-item-top">
-                      <span className="pa-chip">
-                        {TIPO_ANEXO_LABEL[a.tipo_anexo ?? ''] ?? a.tipo_anexo ?? 'Resultado'}
-                      </span>
-                      <span className="pa-muted">{formatFechaHora(a.created_at)}</span>
-                    </div>
-                    <p className="pa-texto">{a.descripcion || a.nombre_archivo}</p>
-                    {a.url_documento ? (
-                      <a
-                        href={a.url_documento}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="pa-btn-secondary"
-                        style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
-                      >
-                        Ver / descargar
-                      </a>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="pa-card" aria-labelledby="subir-title">
-          <div className="pa-card-header">
-            <h2 id="subir-title">Subir resultado de examen</h2>
-          </div>
-          <div className="pa-card-body">
-            <form className="pa-form" onSubmit={(e) => void handleSubirResultado(e)}>
-              <div className="pa-field">
-                <label htmlFor="pa-tipo">Tipo de resultado</label>
-                <select
-                  id="pa-tipo"
-                  value={tipoAnexo}
-                  onChange={(e) => setTipoAnexo(e.target.value)}
-                  disabled={saving}
-                >
-                  <option value="laboratorio">Laboratorio</option>
-                  <option value="imagenologia">Imagenología</option>
-                  <option value="banco_sangre">Banco de sangre</option>
-                  <option value="informe">Informe</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div className="pa-field">
-                <label htmlFor="pa-archivo">Archivo del resultado</label>
+              <label className="bandeja-toggle">
                 <input
-                  id="pa-archivo"
-                  type="file"
-                  onChange={(e) => setArchivoAnexo(e.target.files?.[0] ?? null)}
-                  required
-                  disabled={saving}
+                  type="checkbox"
+                  checked={mostrarCompletadas}
+                  onChange={(e) => setMostrarCompletadas(e.target.checked)}
                 />
-                {archivoAnexo ? (
-                  <p className="pa-hint">
-                    Archivo seleccionado: {archivoAnexo.name} ({(archivoAnexo.size / 1024).toFixed(1)} KB)
-                  </p>
-                ) : null}
+                Ver completadas
+              </label>
+            </div>
+
+            <div className="dash-filter-bar">
+              <input
+                className="dash-filter-input"
+                type="search"
+                placeholder="Buscar por paciente, RUT, examen…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+              <span className="dash-muted">
+                {visibles.length} resultado{visibles.length === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {loading ? (
+              <p className="dash-loading">Cargando órdenes…</p>
+            ) : visibles.length === 0 ? (
+              <p className="dash-empty">
+                {mostrarCompletadas
+                  ? 'No hay órdenes registradas.'
+                  : 'No hay órdenes pendientes. ¡Todo al día!'}
+              </p>
+            ) : (
+              <div className="dash-table-wrap">
+                <table className="dash-table">
+                  <thead>
+                    <tr>
+                      <th>Paciente</th>
+                      <th>Examen</th>
+                      <th>Indicaciones</th>
+                      <th>Toma de muestra</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibles.map((o) => (
+                      <tr key={o.id_orden}>
+                        <td>
+                          <div>
+                            {o.pacientes
+                              ? `${o.pacientes.nombres} ${o.pacientes.apellidos}`
+                              : `Paciente #${o.id_paciente}`}
+                          </div>
+                          {o.pacientes?.rut ? (
+                            <div className="dash-muted">RUT {o.pacientes.rut}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          <span className="orden-chip">{o.tipo_examen}</span>
+                        </td>
+                        <td>{o.indicaciones || '—'}</td>
+                        <td>
+                          {o.fecha_toma_muestra ? (
+                            formatFechaHora(o.fecha_toma_muestra)
+                          ) : o.toma_muestra === 'realizada' ? (
+                            'Realizada'
+                          ) : (
+                            'Sin agendar'
+                          )}
+                        </td>
+                        <td>
+                          <span className={`orden-estado orden-estado-${o.estado}`}>
+                            {ESTADO_LABEL[o.estado] ?? o.estado}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="orden-acciones">
+                            {o.estado === 'pendiente' ? (
+                              <button
+                                type="button"
+                                className="dash-btn-secondary"
+                                onClick={() => void cambiarEstado(o, 'en_proceso')}
+                                disabled={saving === o.id_orden}
+                              >
+                                Iniciar
+                              </button>
+                            ) : null}
+                            {o.estado === 'en_proceso' || o.estado === 'pendiente' ? (
+                              <button
+                                type="button"
+                                className="dash-btn-primary"
+                                onClick={() => void cambiarEstado(o, 'completada')}
+                                disabled={saving === o.id_orden}
+                              >
+                                Completar
+                              </button>
+                            ) : null}
+                            {o.estado === 'pendiente' || o.estado === 'en_proceso' ? (
+                              <SubirResultadoOrden orden={o} onSubido={() => void loadData()} />
+                            ) : null}
+                          </div>
+                          {o.anexos && o.anexos.length > 0 ? (
+                            <div className="bandeja-anexos">
+                              {o.anexos.map((a) => (
+                                <a
+                                  key={a.id_anexo}
+                                  href={a.url_documento}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="bandeja-anexo-link"
+                                >
+                                  {TIPO_ANEXO_LABEL[a.tipo_anexo ?? ''] ?? 'Resultado'}
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="pa-field">
-                <label htmlFor="pa-descripcion">Descripción (opcional)</label>
-                <textarea
-                  id="pa-descripcion"
-                  value={descripcionAnexo}
-                  onChange={(e) => setDescripcionAnexo(e.target.value)}
-                  placeholder="Ej. Resultado de hemograma"
-                  disabled={saving}
-                />
-              </div>
-              <div className="pa-actions">
-                <button type="submit" className="pa-btn-primary" disabled={saving}>
-                  {saving ? 'Subiendo…' : 'Subir resultado'}
-                </button>
-              </div>
-            </form>
+            )}
           </div>
         </section>
-      </main>
+      </div>
     </div>
   )
 }
 
-export default PacienteApoyo
+function SubirResultadoOrden({
+  orden,
+  onSubido,
+}: {
+  orden: OrdenExamen
+  onSubido: () => void
+}) {
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [descripcion, setDescripcion] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+
+  async function subir() {
+    if (!archivo) return
+    setSubiendo(true)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setSubiendo(false)
+      return
+    }
+
+    const ruta = `${orden.id_paciente}/${Date.now()}_${archivo.name}`
+    const { error: uploadError } = await supabase.storage
+      .from('anexos')
+      .upload(ruta, archivo, { cacheControl: '3600', upsert: false })
+
+    if (uploadError) {
+      setSubiendo(false)
+      alert(uploadError.message)
+      return
+    }
+
+    const { data: urlData } = supabase.storage.from('anexos').getPublicUrl(ruta)
+
+    const { error: insError } = await supabase.from('anexos_clinicos').insert({
+      id_paciente: orden.id_paciente,
+      id_usuario_subida: user.id,
+      nombre_archivo: archivo.name,
+      tipo_mime: archivo.type || 'application/octet-stream',
+      url_documento: urlData?.publicUrl ?? '',
+      descripcion: descripcion.trim() || null,
+      tipo_anexo: 'laboratorio',
+    })
+
+    setSubiendo(false)
+    if (insError) {
+      alert(insError.message)
+      return
+    }
+    setArchivo(null)
+    setDescripcion('')
+    onSubido()
+  }
+
+  return (
+    <div className="bandeja-subir">
+      <input
+        type="file"
+        onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+        aria-label="Subir resultado"
+      />
+      <input
+        type="text"
+        value={descripcion}
+        onChange={(e) => setDescripcion(e.target.value)}
+        placeholder="Descripción (opcional)"
+      />
+      <button
+        type="button"
+        className="dash-btn-secondary"
+        onClick={() => void subir()}
+        disabled={!archivo || subiendo}
+      >
+        {subiendo ? 'Subiendo…' : 'Subir resultado'}
+      </button>
+    </div>
+  )
+}
+
+export default BandejaOrdenes

@@ -467,9 +467,9 @@ function Pacientes() {
                                     <button
                                       type="button"
                                       className="pac-btn-secondary"
-                                      onClick={() => navigate(`/paciente-apoyo/${p.id_paciente}`)}
+                                      onClick={() => navigate('/bandeja-ordenes')}
                                     >
-                                      Ver paciente
+                                      Bandeja de órdenes
                                     </button>
                                   ) : puedeSubirAnexo(rol) ? (
                                     <button

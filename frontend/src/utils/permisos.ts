@@ -93,6 +93,7 @@ export type Modulo =
   | 'recetas'
   | 'calculos'
   | 'rem'
+  | 'bandeja_ordenes'
 
 /**
  * Módulos visibles por rol. Controla la navegación (sidebar) y las rutas.
@@ -111,7 +112,7 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
   doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos', 'rem'],
   enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos', 'rem'],
   administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
-  unidad_apoyo: ['pacientes'],
+  unidad_apoyo: ['pacientes', 'bandeja_ordenes'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
 
@@ -132,7 +133,7 @@ export function homeRol(rol: RolUsuario): string {
     case 'administrativo':
       return '/citas'
     case 'unidad_apoyo':
-      return '/pacientes'
+      return '/bandeja-ordenes'
     case 'administrador':
       return '/usuarios'
     default:

@@ -49,6 +49,21 @@
   font-weight: 600;
 }
 
+.portal-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.portal-acciones input[type='datetime-local'] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 900px) {
   .portal-grid {
     grid-template-columns: 1fr;

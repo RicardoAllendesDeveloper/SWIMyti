@@ -298,6 +298,63 @@
   justify-content: flex-end;
 }
 
+.bandeja-aviso {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: #eef4fb;
+  border: 1px solid #c5daf0;
+  color: #0f4c81;
+  font-size: 0.85rem;
+}
+
+.bandeja-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.bandeja-toggle input[type='checkbox'] {
+  accent-color: #0f4c81;
+}
+
+.bandeja-anexos {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bandeja-anexo-link {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: #e7f6ec;
+  color: #1d7a3f;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.bandeja-subir {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.bandeja-subir input[type='file'],
+.bandeja-subir input[type='text'] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+
 @media (max-width: 720px) {
   .pa-header {
     padding: 1rem 1.15rem;

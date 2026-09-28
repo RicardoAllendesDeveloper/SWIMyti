@@ -109,7 +109,7 @@ function App() {
           }
         />
         <Route
-          path="/paciente-apoyo/:idPaciente"
+          path="/bandeja-ordenes"
           element={
             <ProtectedRoute>
               <RoleRoute roles={['unidad_apoyo']}>

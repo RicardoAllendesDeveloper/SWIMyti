@@ -20,6 +20,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
   { modulo: 'recetas', label: 'Recetas y certificados', ruta: '/recetas', roles: ['doctor'] },
   { modulo: 'calculos', label: 'Cálculos clínicos', ruta: '/calculos', roles: ['doctor', 'enfermeria'] },
   { modulo: 'rem', label: 'REM', ruta: '/rem', roles: ['enfermeria'] },
+  { modulo: 'bandeja_ordenes', label: 'Bandeja de órdenes', ruta: '/bandeja-ordenes', roles: ['unidad_apoyo'] },
   { modulo: 'usuarios', label: 'Usuarios', ruta: '/usuarios', roles: ['administrador'] },
 ]
 

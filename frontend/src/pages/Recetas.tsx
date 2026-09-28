@@ -32,6 +32,9 @@ type OrdenExamen = {
   tipo_examen: string
   indicaciones: string | null
   enviada_a_apoyo: boolean
+  modalidad: 'en_recinto' | 'otro_recinto'
+  toma_muestra: 'pendiente' | 'agendada' | 'realizada'
+  fecha_toma_muestra: string | null
   estado: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
   created_at: string
   pacientes?: { nombres: string; apellidos: string; rut: string } | null
@@ -50,6 +53,17 @@ function formatFecha(value: string): string {
     return new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(
       new Date(value),
     )
+  } catch {
+    return value
+  }
+}
+
+function formatFechaHora(value: string): string {
+  try {
+    return new Intl.DateTimeFormat('es-CL', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value))
   } catch {
     return value
   }
@@ -102,7 +116,7 @@ const [userId, setUserId] = useState('')
   const [oPaciente, setOPaciente] = useState('')
   const [oTipo, setOTipo] = useState('')
   const [oIndicaciones, setOIndicaciones] = useState('')
-  const [oEnviarApoyo, setOEnviarApoyo] = useState(true)
+  const [oModalidad, setOModalidad] = useState<'en_recinto' | 'otro_recinto'>('en_recinto')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -129,7 +143,7 @@ const [userId, setUserId] = useState('')
       supabase
         .from('ordenes_examen')
         .select(
-          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, estado, created_at, pacientes(nombres, apellidos, rut)',
+          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, modalidad, toma_muestra, fecha_toma_muestra, estado, created_at, pacientes(nombres, apellidos, rut)',
         )
         .order('created_at', { ascending: false }),
       supabase
@@ -206,6 +220,9 @@ const [userId, setUserId] = useState('')
           tipo_examen: row.tipo_examen as string,
           indicaciones: row.indicaciones as string | null,
           enviada_a_apoyo: row.enviada_a_apoyo as boolean,
+          modalidad: (row.modalidad as OrdenExamen['modalidad']) ?? 'en_recinto',
+          toma_muestra: (row.toma_muestra as OrdenExamen['toma_muestra']) ?? 'pendiente',
+          fecha_toma_muestra: (row.fecha_toma_muestra as string | null) ?? null,
           estado: row.estado as OrdenExamen['estado'],
           created_at: row.created_at as string,
           pacientes: p
@@ -239,7 +256,7 @@ const [userId, setUserId] = useState('')
     setOPaciente('')
     setOTipo('')
     setOIndicaciones('')
-    setOEnviarApoyo(true)
+    setOModalidad('en_recinto')
     setShowForm(true)
   }
 
@@ -307,7 +324,9 @@ const [userId, setUserId] = useState('')
         id_usuario_emisor: userId,
         tipo_examen: oTipo.trim(),
         indicaciones: oIndicaciones.trim() || null,
-        enviada_a_apoyo: oEnviarApoyo,
+        enviada_a_apoyo: oModalidad === 'en_recinto',
+        modalidad: oModalidad,
+        toma_muestra: 'pendiente',
         estado: 'pendiente',
       })
       setSaving(false)
@@ -316,9 +335,9 @@ const [userId, setUserId] = useState('')
         return
       }
       setSuccess(
-        oEnviarApoyo
-          ? 'Orden de examen emitida y enviada al personal de apoyo.'
-          : 'Orden de examen emitida.',
+        oModalidad === 'en_recinto'
+          ? 'Orden de examen emitida y enviada al laboratorio. El paciente debe agendar la toma de muestra.'
+          : 'Orden de examen emitida. El paciente puede descargarla para realizarla en otro recinto.',
       )
     }
 
@@ -596,8 +615,15 @@ const [userId, setUserId] = useState('')
                                   <span className={`orden-estado orden-estado-${o.estado}`}>
                                     {o.estado}
                                   </span>
-                                  {o.enviada_a_apoyo ? (
-                                    <div className="dash-muted">Enviada a unidad de apoyo</div>
+                                  <div className="dash-muted">
+                                    {o.modalidad === 'en_recinto'
+                                      ? 'En el recinto'
+                                      : 'Otro recinto'}
+                                  </div>
+                                  {o.fecha_toma_muestra ? (
+                                    <div className="dash-muted">
+                                      Toma de muestra: {formatFechaHora(o.fecha_toma_muestra)}
+                                    </div>
                                   ) : null}
                                 </td>
                                 <td>{formatFecha(o.created_at)}</td>
@@ -869,15 +895,21 @@ const [userId, setUserId] = useState('')
                     />
                   </div>
                   <div className="dash-field">
-                    <label className="doc-check-label">
-                      <input
-                        type="checkbox"
-                        checked={oEnviarApoyo}
-                        onChange={(e) => setOEnviarApoyo(e.target.checked)}
-                        disabled={saving}
-                      />
-                      Enviar esta orden al personal de apoyo (laboratorio / imagenología)
-                    </label>
+                    <label htmlFor="doc-modalidad">¿Dónde se realizará el examen?</label>
+                    <select
+                      id="doc-modalidad"
+                      value={oModalidad}
+                      onChange={(e) => setOModalidad(e.target.value as 'en_recinto' | 'otro_recinto')}
+                      disabled={saving}
+                    >
+                      <option value="en_recinto">En el recinto</option>
+                      <option value="otro_recinto">En otro recinto</option>
+                    </select>
+                    <p className="dash-field-hint">
+                      {oModalidad === 'en_recinto'
+                        ? 'La orden se envía al laboratorio y el paciente agendará la toma de muestra.'
+                        : 'La orden queda como documento descargable para el paciente.'}
+                    </p>
                   </div>
                 </>
               )}

@@ -157,6 +157,9 @@ export type OrdenExamen = {
   tipo_examen: string
   indicaciones?: string | null
   enviada_a_apoyo: boolean
+  modalidad: 'en_recinto' | 'otro_recinto'
+  toma_muestra: 'pendiente' | 'agendada' | 'realizada'
+  fecha_toma_muestra?: string | null
   estado: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
   created_at: string
   pacientes?: Pick<Paciente, 'nombres' | 'apellidos' | 'rut'> | null

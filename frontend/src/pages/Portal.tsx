@@ -159,7 +159,7 @@ function Portal() {
       supabase
         .from('ordenes_examen')
         .select(
-          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, estado, created_at',
+          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, modalidad, toma_muestra, fecha_toma_muestra, estado, created_at',
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
@@ -218,6 +218,81 @@ function Portal() {
     const u = h ? asSingle(h.usuarios) : null
     if (u && (u.nombres || u.apellidos)) return `${u.nombres} ${u.apellidos}`.trim()
     return 'Profesional'
+  }
+
+  async function agendarTomaMuestra(orden: OrdenExamen, fecha: string) {
+    setError(null)
+    setSuccess(null)
+
+    const { error } = await supabase
+      .from('ordenes_examen')
+      .update({ toma_muestra: 'agendada', fecha_toma_muestra: new Date(fecha).toISOString() })
+      .eq('id_orden', orden.id_orden)
+
+    if (error) {
+      setError(error.message || 'No se pudo agendar la toma de muestra.')
+      return
+    }
+    setSuccess('Toma de muestra agendada.')
+    await loadData()
+  }
+
+  async function cancelarTomaMuestra(orden: OrdenExamen) {
+    setError(null)
+    setSuccess(null)
+
+    const { error } = await supabase
+      .from('ordenes_examen')
+      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null })
+      .eq('id_orden', orden.id_orden)
+
+    if (error) {
+      setError(error.message || 'No se pudo cancelar la toma de muestra.')
+      return
+    }
+    setSuccess('Toma de muestra cancelada.')
+    await loadData()
+  }
+
+  function imprimirOrden(orden: OrdenExamen) {
+    const ventana = window.open('', '_blank', 'width=800,height=600')
+    if (!ventana) return
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Orden de Examen</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #0f172a; }
+    h1 { color: #0f4c81; font-size: 22px; }
+    .header { border-bottom: 3px solid #0f4c81; padding-bottom: 10px; margin-bottom: 24px; }
+    .campo { margin-bottom: 14px; }
+    .label { font-weight: bold; font-size: 12px; color: #64748b; text-transform: uppercase; }
+    .valor { font-size: 15px; margin-top: 2px; }
+    .footer { margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    @media print { body { margin: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SWIMyti — Orden de Examen</h1>
+    <p>Centro de salud · Documento entregado al paciente</p>
+  </div>
+  <div class="campo"><div class="label">Paciente</div><div class="valor">${pacienteNombre || 'Paciente'}</div></div>
+  <div class="campo"><div class="label">Examen solicitado</div><div class="valor">${orden.tipo_examen}</div></div>
+  ${orden.indicaciones ? `<div class="campo"><div class="label">Indicaciones</div><div class="valor">${orden.indicaciones}</div></div>` : ''}
+  <div class="campo"><div class="label">Lugar de realización</div><div class="valor">Otro recinto (no se realiza en este centro)</div></div>
+  <div class="campo"><div class="label">Fecha de emisión</div><div class="valor">${formatFechaHora(orden.created_at)}</div></div>
+  <div class="footer">
+    <p>SWIMyti — Sistema Web Integral Multi-rol y Trazabilidad Inmutable</p>
+    <p>Este documento debe presentarse en el recinto donde se realizará el examen.</p>
+  </div>
+</body>
+</html>`
+    ventana.document.write(html)
+    ventana.document.close()
+    ventana.focus()
+    ventana.print()
   }
 
   const hoy = claveDia(new Date().toISOString())
@@ -514,8 +589,54 @@ function Portal() {
                                     ? 'Cancelada'
                                     : 'Pendiente'}
                             </span>
+                            {' '}·{' '}
+                            {o.modalidad === 'en_recinto' ? 'En el recinto' : 'Otro recinto'}
                           </p>
+                          {o.modalidad === 'en_recinto' ? (
+                            <p className="portal-muted">
+                              Toma de muestra:{' '}
+                              {o.toma_muestra === 'agendada' && o.fecha_toma_muestra
+                                ? `${formatFechaHora(o.fecha_toma_muestra)}`
+                                : o.toma_muestra === 'realizada'
+                                  ? 'Realizada'
+                                  : 'Sin agendar'}
+                            </p>
+                          ) : null}
                           <p className="portal-muted">{formatFecha(o.created_at)}</p>
+                        </div>
+                        <div className="portal-acciones">
+                          {o.modalidad === 'otro_recinto' && o.estado !== 'cancelada' ? (
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => imprimirOrden(o)}
+                            >
+                              Imprimir / PDF
+                            </button>
+                          ) : null}
+                          {o.modalidad === 'en_recinto' &&
+                          o.estado === 'pendiente' &&
+                          o.toma_muestra === 'pendiente' ? (
+                            <input
+                              type="datetime-local"
+                              aria-label="Fecha y hora de la toma de muestra"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  void agendarTomaMuestra(o, e.target.value)
+                                }
+                              }}
+                            />
+                          ) : null}
+                          {o.modalidad === 'en_recinto' &&
+                          o.toma_muestra === 'agendada' ? (
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => void cancelarTomaMuestra(o)}
+                            >
+                              Cancelar toma
+                            </button>
+                          ) : null}
                         </div>
                       </li>
                     ))}
