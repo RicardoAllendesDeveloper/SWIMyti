@@ -11,6 +11,7 @@ import Calculos from './pages/Calculos'
 import Rem from './pages/Rem'
 import PacienteApoyo from './pages/PacienteApoyo'
 import BandejaOrdenes from './pages/BandejaOrdenes'
+import ConfigRecinto from './pages/ConfigRecinto'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -125,6 +126,16 @@ function App() {
             <ProtectedRoute>
               <RoleRoute roles={['unidad_apoyo']}>
                 <PacienteApoyo />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/config-recinto"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['administrador']}>
+                <ConfigRecinto />
               </RoleRoute>
             </ProtectedRoute>
           }

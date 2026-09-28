@@ -74,10 +74,15 @@ function Portal() {
   const [interconsultas, setInterconsultas] = useState<Interconsulta[]>([])
   const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [pacienteNombre, setPacienteNombre] = useState('')
+  const [idPacienteEstado, setIdPacienteEstado] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<number | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [bloquesToma, setBloquesToma] = useState<
+    { id_horario: number; fecha_inicio: string }[]
+  >([])
+  const [confirmando, setConfirmando] = useState<number | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -109,8 +114,9 @@ function Portal() {
     }
 
     setPacienteNombre(`${pac.nombres} ${pac.apellidos}`)
+    setIdPacienteEstado(pac.id_paciente)
 
-    const [citasRes, recRes, certRes, anexRes, icRes, ordRes] = await Promise.all([
+    const [citasRes, recRes, certRes, anexRes, icRes, ordRes, horRes] = await Promise.all([
       supabase
         .from('citas')
         .select(
@@ -163,6 +169,13 @@ function Portal() {
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('horarios_disponibles')
+        .select('id_horario, fecha_inicio, especialidades(nombre)')
+        .eq('estado', 'disponible')
+        .gte('fecha_inicio', new Date().toISOString())
+        .order('fecha_inicio', { ascending: true })
+        .limit(40),
     ])
 
     if (citasRes.error) setError(citasRes.error.message)
@@ -173,6 +186,22 @@ function Portal() {
     if (!anexRes.error) setAnexos((anexRes.data ?? []) as AnexoClinico[])
     if (!icRes.error) setInterconsultas((icRes.data ?? []) as Interconsulta[])
     if (!ordRes.error) setOrdenes((ordRes.data ?? []) as OrdenExamen[])
+
+    if (!horRes.error) {
+      const rows = (horRes.data ?? []) as {
+        id_horario: number
+        fecha_inicio: string
+        especialidades?: { nombre?: string } | { nombre?: string }[] | null
+      }[]
+      setBloquesToma(
+        rows
+          .filter((h) => {
+            const e = asSingle(h.especialidades)
+            return e?.nombre === 'Toma de muestra (Laboratorio)'
+          })
+          .map((h) => ({ id_horario: h.id_horario, fecha_inicio: h.fecha_inicio })),
+      )
+    }
 
     setLoading(false)
   }, [])
@@ -220,20 +249,80 @@ function Portal() {
     return 'Profesional'
   }
 
-  async function agendarTomaMuestra(orden: OrdenExamen, fecha: string) {
+  async function reservarTomaMuestra(orden: OrdenExamen, idHorario: number) {
     setError(null)
     setSuccess(null)
+    setConfirmando(idHorario)
 
-    const { error } = await supabase
-      .from('ordenes_examen')
-      .update({ toma_muestra: 'agendada', fecha_toma_muestra: new Date(fecha).toISOString() })
-      .eq('id_orden', orden.id_orden)
-
-    if (error) {
-      setError(error.message || 'No se pudo agendar la toma de muestra.')
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setConfirmando(null)
+      setError('Sesión no válida. Vuelve a iniciar sesión.')
       return
     }
-    setSuccess('Toma de muestra agendada.')
+
+    // Confirmación
+    const confirmar = window.confirm(
+      '¿Confirmar la reserva de esta hora para tu toma de muestra?',
+    )
+    if (!confirmar) {
+      setConfirmando(null)
+      return
+    }
+
+    const idPaciente = idPacienteEstado
+    if (!idPaciente) {
+      setConfirmando(null)
+      setError('No se pudo identificar tu perfil de paciente.')
+      return
+    }
+
+    // 1) Crear la cita sobre el bloque disponible
+    const { error: insertError } = await supabase.from('citas').insert({
+      id_horario: idHorario,
+      id_paciente: idPaciente,
+      motivo: 'Toma de muestra',
+      estado: 'reservada',
+    })
+
+    if (insertError) {
+      setConfirmando(null)
+      const msg = insertError.message.toLowerCase()
+      if (msg.includes('ya no está disponible')) {
+        setError('Ese horario acaba de ser reservado. Elige otro.')
+      } else {
+        setError(
+          insertError.message ||
+            'Hubo un error al agendar tu hora. Por favor reintenta más tarde.',
+        )
+      }
+      await loadData()
+      return
+    }
+
+    // 2) Marcar la orden como agendada con la fecha del bloque
+    const bloque = bloquesToma.find((b) => b.id_horario === idHorario)
+    const fechaBloque = bloque?.fecha_inicio ?? null
+
+    const { error: updError } = await supabase
+      .from('ordenes_examen')
+      .update({
+        toma_muestra: 'agendada',
+        fecha_toma_muestra: fechaBloque,
+      })
+      .eq('id_orden', orden.id_orden)
+
+    setConfirmando(null)
+
+    if (updError) {
+      setError(updError.message || 'Tu hora se reservó, pero no se pudo marcar la orden.')
+      await loadData()
+      return
+    }
+
+    setSuccess('Tu hora de toma de muestra fue agendada exitosamente.')
     await loadData()
   }
 
@@ -617,15 +706,34 @@ function Portal() {
                           {o.modalidad === 'en_recinto' &&
                           o.estado === 'pendiente' &&
                           o.toma_muestra === 'pendiente' ? (
-                            <input
-                              type="datetime-local"
-                              aria-label="Fecha y hora de la toma de muestra"
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  void agendarTomaMuestra(o, e.target.value)
-                                }
-                              }}
-                            />
+                            <div className="toma-bloques">
+                              <p className="portal-muted">
+                                <strong>Horarios disponibles para tu toma de muestra:</strong>{' '}
+                                Recuerda llegar 15 minutos antes.
+                              </p>
+                              {bloquesToma.length === 0 ? (
+                                <p className="portal-muted">
+                                  No hay horarios disponibles en este momento. Intenta más
+                                  tarde.
+                                </p>
+                              ) : (
+                                <div className="toma-lista">
+                                  {bloquesToma.map((b) => (
+                                    <button
+                                      key={b.id_horario}
+                                      type="button"
+                                      className="dash-btn-secondary"
+                                      onClick={() => void reservarTomaMuestra(o, b.id_horario)}
+                                      disabled={confirmando === b.id_horario}
+                                    >
+                                      {confirmando === b.id_horario
+                                        ? 'Confirmando…'
+                                        : formatFechaHora(b.fecha_inicio)}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ) : null}
                           {o.modalidad === 'en_recinto' &&
                           o.toma_muestra === 'agendada' ? (

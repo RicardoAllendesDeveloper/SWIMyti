@@ -64,6 +64,19 @@
   font-size: 0.85rem;
 }
 
+.toma-bloques {
+  margin-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.6rem;
+}
+
+.toma-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 900px) {
   .portal-grid {
     grid-template-columns: 1fr;

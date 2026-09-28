@@ -94,6 +94,7 @@ export type Modulo =
   | 'calculos'
   | 'rem'
   | 'bandeja_ordenes'
+  | 'config_recinto'
 
 /**
  * Módulos visibles por rol. Controla la navegación (sidebar) y las rutas.
@@ -108,6 +109,7 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
     'bonos',
     'finanzas',
     'usuarios',
+    'config_recinto',
   ],
   doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos', 'rem'],
   enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos', 'rem'],

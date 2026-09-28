@@ -1,0 +1,70 @@
+/* SWIMyti - Configuración del recinto (CSS puro) */
+
+.cr-modalidades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.cr-modalidad {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.cr-modalidad.is-active {
+  border-color: #0f4c81;
+  background: #eef4fb;
+}
+
+.cr-modalidad input[type='radio'] {
+  accent-color: #0f4c81;
+  margin-top: 0.15rem;
+}
+
+.cr-modalidad strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.cr-modalidad p {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.cr-franjas {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cr-franja {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #0f4c81;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cr-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+@media (max-width: 720px) {
+  .cr-modalidades {
+    grid-template-columns: 1fr;
+  }
+}
