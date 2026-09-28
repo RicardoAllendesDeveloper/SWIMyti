@@ -701,7 +701,10 @@ function Portal() {
                         <div>
                           <strong>{o.tipo_examen}</strong>
                           {o.indicaciones ? (
-                            <p className="portal-muted">Indicaciones: {o.indicaciones}</p>
+                            <div className="orden-observaciones">
+                              <strong>Observaciones del profesional:</strong>{' '}
+                              {o.indicaciones}
+                            </div>
                           ) : null}
                           <p className="portal-muted">
                             Estado:{' '}

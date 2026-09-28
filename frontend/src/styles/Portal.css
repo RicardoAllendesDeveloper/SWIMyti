@@ -38,6 +38,21 @@
   margin: 0.15rem 0;
 }
 
+.orden-observaciones {
+  margin: 0.4rem 0;
+  padding: 0.55rem 0.75rem;
+  border-left: 4px solid #0f4c81;
+  background: #eef4fb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #0f2c47;
+  line-height: 1.4;
+}
+
+.orden-observaciones strong {
+  color: #0f4c81;
+}
+
 .portal-text {
   color: #334155;
   font-size: 0.92rem;
