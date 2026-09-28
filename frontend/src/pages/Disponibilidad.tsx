@@ -284,29 +284,44 @@ function Disponibilidad() {
     await loadData()
   }
 
-  async function cancelarJornada(g: { fecha: string; idEspecialidad: number; idProfesional: string }) {
+  async function eliminarJornada(g: { fecha: string; idEspecialidad: number; idProfesional: string }) {
     setError(null)
     setSuccess(null)
 
     const confirmado = window.confirm(
-      '¿Deseas cancelar todos los bloques disponibles de esta jornada? Las horas ya reservadas no se afectan.',
+      '¿Deseas eliminar esta jornada? Se borrarán los bloques que no estén reservados y podrás publicarla de nuevo.',
     )
     if (!confirmado) return
 
-    const { error } = await supabase
-      .from('horarios_disponibles')
-      .update({ estado: 'cancelada' })
-      .eq('id_profesional', g.idProfesional)
-      .eq('id_especialidad', g.idEspecialidad)
-      .eq('estado', 'disponible')
-      .gte('fecha_inicio', `${g.fecha}T00:00:00`)
-      .lt('fecha_inicio', `${g.fecha}T23:59:59.999`)
+    const { data, error } = await supabase.rpc('fn_eliminar_bloques_jornada', {
+      p_fecha: g.fecha,
+      p_id_especialidad: g.idEspecialidad,
+      p_id_profesional: g.idProfesional,
+    })
 
-    if (error) {
-      setError(error.message || 'No se pudo cancelar la jornada.')
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo eliminar la jornada.')
       return
     }
-    setSuccess('Jornada cancelada. Las horas disponibles quedaron liberadas.')
+
+    const eliminados = (data.eliminados as number) ?? 0
+    const omitidos = (data.omitidos as number) ?? 0
+    const partes: string[] = []
+
+    if (eliminados > 0) {
+      partes.push(
+        `Jornada eliminada: ${eliminados} bloque${eliminados === 1 ? '' : 's'} borrado${eliminados === 1 ? '' : 's'}.`,
+      )
+    } else {
+      partes.push('No había bloques disponibles para eliminar en esta jornada.')
+    }
+    if (omitidos > 0) {
+      partes.push(
+        `Se conservaron ${omitidos} bloque${omitidos === 1 ? '' : 's'} con reservas o atenciones asociadas.`,
+      )
+    }
+
+    setSuccess(partes.join(' '))
     await loadData()
   }
 
@@ -855,14 +870,14 @@ function Disponibilidad() {
                               type="button"
                               className="dash-btn-secondary jornada-cancelar"
                               onClick={() =>
-                                void cancelarJornada({
+                                void eliminarJornada({
                                   fecha: g.fecha,
                                   idEspecialidad: g.idEspecialidad,
                                   idProfesional: g.idProfesional,
                                 })
                               }
                             >
-                              Cancelar jornada
+                              Eliminar jornada
                             </button>
                           ) : null}
                         </div>
