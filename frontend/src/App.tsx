@@ -9,7 +9,7 @@ import Disponibilidad from './pages/Disponibilidad'
 import Expediente from './pages/Expediente'
 import Calculos from './pages/Calculos'
 import Rem from './pages/Rem'
-import OrdenesApoyo from './pages/OrdenesApoyo'
+import PacienteApoyo from './pages/PacienteApoyo'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -109,11 +109,11 @@ function App() {
           }
         />
         <Route
-          path="/ordenes-apoyo"
+          path="/paciente-apoyo/:idPaciente"
           element={
             <ProtectedRoute>
               <RoleRoute roles={['unidad_apoyo']}>
-                <OrdenesApoyo />
+                <PacienteApoyo />
               </RoleRoute>
             </ProtectedRoute>
           }

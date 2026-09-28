@@ -463,7 +463,15 @@ function Pacientes() {
                                       Actualizar
                                     </button>
                                   ) : null}
-                                  {puedeSubirAnexo(rol) ? (
+                                  {rol === 'unidad_apoyo' ? (
+                                    <button
+                                      type="button"
+                                      className="pac-btn-secondary"
+                                      onClick={() => navigate(`/paciente-apoyo/${p.id_paciente}`)}
+                                    >
+                                      Ver paciente
+                                    </button>
+                                  ) : puedeSubirAnexo(rol) ? (
                                     <button
                                       type="button"
                                       className="pac-btn-secondary"

@@ -1,0 +1,308 @@
+/* SWIMyti - Vista de paciente para unidad de apoyo (CSS puro) */
+
+.pa {
+  min-height: 100svh;
+  background: #f4f7fb;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pa-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.75rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.pa-back {
+  border: none;
+  background: transparent;
+  color: #0f4c81;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pa-back:hover {
+  text-decoration: underline;
+}
+
+.pa-header-title h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+
+.pa-header-title p {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.pa-content {
+  padding: 1.5rem 1.75rem 2.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pa-alert {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.pa-alert-error {
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.pa-alert-success {
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.pa-loading,
+.pa-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.pa-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.pa-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.pa-card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.pa-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: #e8f1fa;
+  color: #0f4c81;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pa-card-body {
+  padding: 1.15rem 1.25rem 1.35rem;
+}
+
+.pa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pa-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.95rem 1rem;
+  background: #fff;
+}
+
+.pa-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.pa-chip {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #e8f1fa;
+  color: #0f4c81;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pa-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.pa-estado-pendiente {
+  background: #fff4e6;
+  color: #b45309;
+}
+
+.pa-estado-en_proceso {
+  background: #e8f1fa;
+  color: #0f4c81;
+}
+
+.pa-estado-completada {
+  background: #e7f6ec;
+  color: #1d7a3f;
+}
+
+.pa-estado-cancelada {
+  background: #fdecec;
+  color: #c0392b;
+}
+
+.pa-muted {
+  margin: 0.15rem 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.pa-texto {
+  margin: 0.3rem 0 0;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.pa-acciones {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.pa-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #0f4c81;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pa-btn-primary:hover:not(:disabled) {
+  background: #0c3d68;
+}
+
+.pa-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.pa-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pa-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.pa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.pa-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pa-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.pa-field select,
+.pa-field input,
+.pa-field textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.pa-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.pa-field select:focus,
+.pa-field input:focus,
+.pa-field textarea:focus {
+  border-color: #0f4c81;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
+}
+
+.pa-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pa-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .pa-header {
+    padding: 1rem 1.15rem;
+  }
+  .pa-content {
+    padding: 1.15rem;
+  }
+}
