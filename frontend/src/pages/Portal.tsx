@@ -559,7 +559,7 @@ function Portal() {
                 )}
               </div>
 
-              <div className="dash-card">
+              <div className="dash-card portal-card-full">
                 <div className="dash-card-header">
                   <div>
                     <h3>Mis órdenes de examen</h3>

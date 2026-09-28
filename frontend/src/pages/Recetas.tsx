@@ -458,7 +458,7 @@ const [userId, setUserId] = useState('')
       <div className="dash-main">
         <header className="dash-topbar">
           <div>
-            <h2>Documentos clínicos</h2>
+            <h2>Generar documentos</h2>
             <p>Emisión de recetas médicas, certificados clínicos y órdenes de examen</p>
           </div>
           {puedeEmitir ? (

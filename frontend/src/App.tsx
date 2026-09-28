@@ -10,6 +10,7 @@ import Expediente from './pages/Expediente'
 import Calculos from './pages/Calculos'
 import Rem from './pages/Rem'
 import PacienteApoyo from './pages/PacienteApoyo'
+import BandejaOrdenes from './pages/BandejaOrdenes'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -110,6 +111,16 @@ function App() {
         />
         <Route
           path="/bandeja-ordenes"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['unidad_apoyo']}>
+                <BandejaOrdenes />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/paciente-apoyo/:idPaciente"
           element={
             <ProtectedRoute>
               <RoleRoute roles={['unidad_apoyo']}>

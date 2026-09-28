@@ -17,7 +17,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
   { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas', roles: ['*'] },
   { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos', roles: ['administrador', 'administrativo'] },
   { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas', roles: ['administrador', 'administrativo'] },
-  { modulo: 'recetas', label: 'Recetas y certificados', ruta: '/recetas', roles: ['doctor'] },
+  { modulo: 'recetas', label: 'Generar documentos', ruta: '/recetas', roles: ['doctor'] },
   { modulo: 'calculos', label: 'Cálculos clínicos', ruta: '/calculos', roles: ['doctor', 'enfermeria'] },
   { modulo: 'rem', label: 'REM', ruta: '/rem', roles: ['enfermeria'] },
   { modulo: 'bandeja_ordenes', label: 'Bandeja de órdenes', ruta: '/bandeja-ordenes', roles: ['unidad_apoyo'] },
