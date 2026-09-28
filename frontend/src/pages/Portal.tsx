@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
+import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import type { AnexoClinico, Cita, Interconsulta, OrdenExamen } from '../types/database'
 import '../styles/Portal.css'
 
@@ -708,31 +709,16 @@ function Portal() {
                           o.toma_muestra === 'pendiente' ? (
                             <div className="toma-bloques">
                               <p className="portal-muted">
-                                <strong>Horarios disponibles para tu toma de muestra:</strong>{' '}
+                                <strong>Elige el día y la hora de tu toma de muestra:</strong>{' '}
                                 Recuerda llegar 15 minutos antes.
                               </p>
-                              {bloquesToma.length === 0 ? (
-                                <p className="portal-muted">
-                                  No hay horarios disponibles en este momento. Intenta más
-                                  tarde.
-                                </p>
-                              ) : (
-                                <div className="toma-lista">
-                                  {bloquesToma.map((b) => (
-                                    <button
-                                      key={b.id_horario}
-                                      type="button"
-                                      className="dash-btn-secondary"
-                                      onClick={() => void reservarTomaMuestra(o, b.id_horario)}
-                                      disabled={confirmando === b.id_horario}
-                                    >
-                                      {confirmando === b.id_horario
-                                        ? 'Confirmando…'
-                                        : formatFechaHora(b.fecha_inicio)}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                              <CalendarioDisponibilidad
+                                bloques={bloquesToma}
+                                onReservar={(idHorario, _fecha) =>
+                                  void reservarTomaMuestra(o, idHorario)
+                                }
+                                confirmandoId={confirmando}
+                              />
                             </div>
                           ) : null}
                           {o.modalidad === 'en_recinto' &&
