@@ -4,6 +4,7 @@ import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
 import type { Especialidad, HorarioDisponible } from '../types/database'
+import { claveDia, claveHoy, formatHoraMin } from '../utils/fechas'
 import '../styles/Disponibilidad.css'
 
 function formatFechaHora(value: string): string {
@@ -28,26 +29,9 @@ function formatFechaCorta(value: string): string {
   }
 }
 
-function formatHoraMin(value: string): string {
-  try {
-    return new Intl.DateTimeFormat('es-CL', { timeStyle: 'short' }).format(
-      new Date(value),
-    )
-  } catch {
-    return value
-  }
-}
-
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
-function claveDia(value: string): string {
-  const d = new Date(value)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
 }
 
 type AtencionAgenda = {
@@ -356,7 +340,7 @@ function Disponibilidad() {
   }
 
   // Clasificación de atenciones por día
-  const hoy = claveDia(new Date().toISOString())
+  const hoy = claveHoy()
   const atencionesActuales = agenda.filter(
     (a) => a.fecha_inicio && claveDia(a.fecha_inicio) === hoy,
   )

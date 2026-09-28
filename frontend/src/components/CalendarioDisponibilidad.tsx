@@ -1,4 +1,12 @@
 import { useMemo, useState } from 'react'
+import {
+  anioMesActuales,
+  claveDia,
+  claveDiaDeCalendario,
+  claveHoy,
+  diasEnMes,
+  diaSemanaDeClave,
+} from '../utils/fechas'
 import '../styles/CalendarioDisponibilidad.css'
 
 export type BloqueDisponible = {
@@ -11,13 +19,6 @@ type Props = {
   onReservar: (idHorario: number, fechaInicio: string) => void
   confirmandoId: number | null
   mensajeVacio?: string
-}
-
-function claveDia(value: string | Date): string {
-  const d = typeof value === 'string' ? new Date(value) : value
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
 }
 
 function formatearHora(value: string): string {
@@ -38,18 +39,18 @@ function CalendarioDisponibilidad({
   confirmandoId,
   mensajeVacio = 'No hay horarios disponibles en este momento. Intenta más tarde.',
 }: Props) {
-  const hoy = new Date()
-  const hoyClave = claveDia(hoy)
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth())
+  const hoyClave = claveHoy()
+  const { anio, mes } = anioMesActuales()
+  const [anioNavegado, setAnio] = useState(anio)
+  const [mesNavegado, setMes] = useState(mes)
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null)
 
   // No se permite navegar a un mes anterior al actual
-  const mesMinimo = hoy.getFullYear() * 12 + hoy.getMonth()
-  const mesActual = anio * 12 + mes
+  const mesMinimo = anio * 12 + mes
+  const mesActual = anioNavegado * 12 + mesNavegado
   const noPuedeRetroceder = mesActual <= mesMinimo
 
-  // Bloques agrupados por día
+  // Bloques agrupados por día chileno
   const bloquesPorDia = useMemo(() => {
     const mapa = new Map<string, BloqueDisponible[]>()
     for (const b of bloques) {
@@ -63,21 +64,21 @@ function CalendarioDisponibilidad({
 
   // Celdas del mes visible
   const celdas = useMemo(() => {
-    const primerDia = new Date(anio, mes, 1)
-    const offset = (primerDia.getDay() + 6) % 7 // lunes primero
-    const diasEnMes = new Date(anio, mes + 1, 0).getDate()
+    const primerDia = claveDiaDeCalendario(anioNavegado, mesNavegado, 1)
+    const offset = diaSemanaDeClave(primerDia) // lunes primero
+    const total = diasEnMes(anioNavegado, mesNavegado)
     const arr: { dia: number | null; fecha: string }[] = []
     for (let i = 0; i < offset; i++) arr.push({ dia: null, fecha: '' })
-    for (let d = 1; d <= diasEnMes; d++) {
-      arr.push({ dia: d, fecha: claveDia(new Date(anio, mes, d)) })
+    for (let d = 1; d <= total; d++) {
+      arr.push({ dia: d, fecha: claveDiaDeCalendario(anioNavegado, mesNavegado, d) })
     }
     return arr
-  }, [anio, mes])
+  }, [anioNavegado, mesNavegado])
 
-  const nombreMes = new Date(anio, mes, 1).toLocaleString('es-CL', {
-    month: 'long',
-    year: 'numeric',
-  })
+  const nombreMes = new Date(Date.UTC(anioNavegado, mesNavegado, 1)).toLocaleString(
+    'es-CL',
+    { month: 'long', year: 'numeric', timeZone: 'UTC' },
+  )
 
   const horasDelDia = diaSeleccionado ? (bloquesPorDia.get(diaSeleccionado) ?? []) : []
   const [pagina, setPagina] = useState(1)
@@ -101,8 +102,8 @@ function CalendarioDisponibilidad({
   function cambiarMes(delta: number) {
     const siguiente = mesActual + delta
     if (siguiente < mesMinimo) return
-    let nuevoMes = mes + delta
-    let nuevoAnio = anio
+    let nuevoMes = mesNavegado + delta
+    let nuevoAnio = anioNavegado
     if (nuevoMes < 0) {
       nuevoMes = 11
       nuevoAnio -= 1
@@ -178,10 +179,16 @@ function CalendarioDisponibilidad({
         <div className="cal-disp-horas">
           <p className="cal-disp-horas-titulo">
             Horas disponibles del{' '}
-            {new Date(diaSeleccionado + 'T00:00:00').toLocaleDateString('es-CL', {
+            {/*
+              La clave ya es una fecha civil chilena: se interpreta en UTC para
+              formatearla. Usar `new Date(clave + 'T00:00:00')` (medianoche
+              local) y formatear en America/Santiago retrocedería un día.
+            */}
+            {new Date(`${diaSeleccionado}T00:00:00Z`).toLocaleDateString('es-CL', {
               day: 'numeric',
               month: 'long',
               year: 'numeric',
+              timeZone: 'UTC',
             })}
             :
           </p>

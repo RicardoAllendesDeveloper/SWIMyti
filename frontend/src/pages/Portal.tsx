@@ -4,6 +4,7 @@ import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
 import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import type { AnexoClinico, Cita, Interconsulta, OrdenExamen } from '../types/database'
+import { claveDia, claveHoy } from '../utils/fechas'
 import '../styles/Portal.css'
 
 function formatFechaHora(value: string): string {
@@ -30,13 +31,6 @@ function formatFecha(value: string): string {
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
-function claveDia(value: string): string {
-  const d = new Date(value)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
 }
 
 const LLEGADA_LABEL: Record<string, string> = {
@@ -398,7 +392,7 @@ function Portal() {
     ventana.print()
   }
 
-  const hoy = claveDia(new Date().toISOString())
+  const hoy = claveHoy()
   const citasProximas = citas.filter(
     (c) =>
       c.horarios_disponibles &&

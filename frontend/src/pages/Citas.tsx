@@ -4,6 +4,7 @@ import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
 import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import { puedeGestionarCitas } from '../utils/permisos'
+import { claveDia, claveHoy } from '../utils/fechas'
 import type { Especialidad, HorarioDisponible } from '../types/database'
 import '../styles/Citas.css'
 
@@ -313,14 +314,7 @@ function Citas() {
     await loadData()
   }
 
-  function claveDia(value: string): string {
-    const d = new Date(value)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-      d.getDate(),
-    ).padStart(2, '0')}`
-  }
-
-  const hoy = claveDia(new Date().toISOString())
+  const hoy = claveHoy()
   const gestionActuales = citasGestion.filter(
     (c) => c.fecha_inicio && claveDia(c.fecha_inicio) === hoy,
   )
