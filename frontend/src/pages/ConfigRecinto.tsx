@@ -8,13 +8,13 @@ const MODALIDADES = [
     id: 'full_time',
     nombre: 'Full time',
     descripcion:
-      'Lun–Vie 7:30 a 16:30 · Sáb 8:00 a 12:00. Ideal si el recinto tiene laboratorio propio (mañana toma de muestras, tarde análisis).',
+      'Recinto que solo realiza toma de muestras y las envía a un laboratorio externo. Puede tomar muestras todo el día (Lun–Vie 7:30 a 16:30, Sáb 8:00 a 12:00).',
   },
   {
     id: 'part_time',
     nombre: 'Part time',
     descripcion:
-      'Lun–Sáb 7:30 a 10:00. Solo toma de muestras; las muestras se envían a un laboratorio externo.',
+      'Recinto con laboratorio clínico propio: usa la mañana para tomar las muestras y la tarde para analizarlas (Lun–Sáb 7:30 a 10:00).',
   },
 ]
 

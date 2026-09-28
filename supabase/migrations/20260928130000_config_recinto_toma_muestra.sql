@@ -27,7 +27,7 @@ create table if not exists public.config_recinto (
 
 insert into public.config_recinto (clave, valor, descripcion)
 values ('modalidad_toma_muestra', 'full_time',
-        'Jornada del laboratorio: full_time (Lun-Vie 7:30-16:30, Sáb 8:00-12:00) o part_time (Lun-Sáb 7:30-10:00)')
+        'Modalidad de atencion de toma de muestra. PART TIME = recinto con laboratorio propio (manana toma, tarde analiza, Lun-Sab 7:30-10:00). FULL TIME = solo toma de muestras enviadas a laboratorio externo (Lun-Vie 7:30-16:30, Sab 8:00-12:00).')
 on conflict (clave) do nothing;
 
 -- ---------- Función: generar bloques de toma de muestra (15 min) ----------
