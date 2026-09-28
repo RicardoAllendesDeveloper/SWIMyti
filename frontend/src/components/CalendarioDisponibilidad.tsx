@@ -153,13 +153,19 @@ function CalendarioDisponibilidad({
           const esHoy = c.fecha === hoyClave
           const seleccionado = c.fecha === diaSeleccionado
           const pasado = c.fecha < hoyClave
+
+          // Los días pasados no se muestran (solo aparecen desde hoy)
+          if (pasado) {
+            return <span key={c.fecha} className="cal-disp-dia cal-disp-dia-vacio" />
+          }
+
           return (
             <button
               key={c.fecha}
               type="button"
-              className={`cal-disp-dia${tiene ? ' cal-disp-dia-disponible' : ' cal-disp-dia-no'}${esHoy ? ' cal-disp-dia-hoy' : ''}${seleccionado ? ' cal-disp-dia-seleccionado' : ''}${pasado ? ' cal-disp-dia-pasado' : ''}`}
-              onClick={() => tiene && !pasado && seleccionarDia(c.fecha)}
-              disabled={!tiene || pasado}
+              className={`cal-disp-dia${tiene ? ' cal-disp-dia-disponible' : ' cal-disp-dia-no'}${esHoy ? ' cal-disp-dia-hoy' : ''}${seleccionado ? ' cal-disp-dia-seleccionado' : ''}`}
+              onClick={() => tiene && seleccionarDia(c.fecha)}
+              disabled={!tiene}
               title={tiene ? 'Hay horas disponibles' : 'Sin horas disponibles'}
             >
               {c.dia}
