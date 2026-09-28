@@ -28,6 +28,16 @@ function formatFechaCorta(value: string): string {
   }
 }
 
+function formatHoraMin(value: string): string {
+  try {
+    return new Intl.DateTimeFormat('es-CL', { timeStyle: 'short' }).format(
+      new Date(value),
+    )
+  } catch {
+    return value
+  }
+}
+
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? (value[0] ?? null) : value
@@ -274,20 +284,29 @@ function Disponibilidad() {
     await loadData()
   }
 
-  async function cancelarBloque(idHorario: number) {
+  async function cancelarJornada(g: { fecha: string; idEspecialidad: number; idProfesional: string }) {
     setError(null)
     setSuccess(null)
+
+    const confirmado = window.confirm(
+      '¿Deseas cancelar todos los bloques disponibles de esta jornada? Las horas ya reservadas no se afectan.',
+    )
+    if (!confirmado) return
+
     const { error } = await supabase
       .from('horarios_disponibles')
       .update({ estado: 'cancelada' })
-      .eq('id_horario', idHorario)
+      .eq('id_profesional', g.idProfesional)
+      .eq('id_especialidad', g.idEspecialidad)
       .eq('estado', 'disponible')
+      .gte('fecha_inicio', `${g.fecha}T00:00:00`)
+      .lt('fecha_inicio', `${g.fecha}T23:59:59.999`)
 
     if (error) {
-      setError(error.message || 'No se pudo cancelar el bloque.')
+      setError(error.message || 'No se pudo cancelar la jornada.')
       return
     }
-    setSuccess('Bloque cancelado.')
+    setSuccess('Jornada cancelada. Las horas disponibles quedaron liberadas.')
     await loadData()
   }
 
@@ -354,7 +373,7 @@ function Disponibilidad() {
     paginaSeguraAtenciones * POR_PAGINA,
   )
 
-  // Filtro + paginación de bloques publicados
+  // Filtro de bloques publicados
   const horariosFiltrados = horarios.filter((h) => {
     if (!busquedaBloques.trim()) return true
     const q = busquedaBloques.trim().toLowerCase()
@@ -364,15 +383,58 @@ function Disponibilidad() {
       h.estado.toLowerCase().includes(q)
     )
   })
+
+  // Agrupar los bloques por día + especialidad + profesional (jornada)
+  type GrupoJornada = {
+    fecha: string
+    idEspecialidad: number
+    especialidad: string
+    idProfesional: string
+    profesional: string
+    bloques: HorarioDisponible[]
+  }
+  const gruposJornada: GrupoJornada[] = (() => {
+    const mapa = new Map<string, GrupoJornada>()
+    for (const h of horariosFiltrados) {
+      const idEsp = h.id_especialidad ?? 0
+      const k = `${claveDia(h.fecha_inicio)}|${idEsp}|${h.id_profesional}`
+      let g = mapa.get(k)
+      if (!g) {
+        const u = asSingle(h.usuarios)
+        g = {
+          fecha: claveDia(h.fecha_inicio),
+          idEspecialidad: idEsp,
+          especialidad: nombreEspecialidad(h),
+          idProfesional: h.id_profesional,
+          profesional: u
+            ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
+            : 'Profesional',
+          bloques: [],
+        }
+        mapa.set(k, g)
+      }
+      g.bloques.push(h)
+    }
+    return Array.from(mapa.values()).sort((a, b) => a.fecha.localeCompare(b.fecha))
+  })()
+
+  // Paginación por jornada (grupo)
   const totalPaginasBloques = Math.max(
     1,
-    Math.ceil(horariosFiltrados.length / POR_PAGINA),
+    Math.ceil(gruposJornada.length / POR_PAGINA),
   )
   const paginaSeguraBloques = Math.min(paginaBloques, totalPaginasBloques)
-  const horariosPagina = horariosFiltrados.slice(
+  const gruposPagina = gruposJornada.slice(
     (paginaSeguraBloques - 1) * POR_PAGINA,
     paginaSeguraBloques * POR_PAGINA,
   )
+
+  function estadoJornada(g: GrupoJornada): { label: string; cls: string } {
+    const disponibles = g.bloques.filter((b) => b.estado === 'disponible').length
+    if (disponibles === g.bloques.length) return { label: 'Disponible', cls: 'jornada-ok' }
+    if (disponibles === 0) return { label: 'Completa', cls: 'jornada-agotada' }
+    return { label: 'Parcial', cls: 'jornada-parcial' }
+  }
 
   const ESTADO_LABEL: Record<string, string> = {
     disponible: 'Disponible',
@@ -696,9 +758,11 @@ function Disponibilidad() {
             <div className="dash-card-header">
               <div>
                 <h3>Bloques publicados</h3>
-                <p className="dash-muted">Estado actual de la disponibilidad</p>
+                <p className="dash-muted">
+                  Disponibilidad agrupada por jornada (día)
+                </p>
               </div>
-              <span className="dash-badge">{horarios.length}</span>
+              <span className="dash-badge">{gruposJornada.length} jornadas</span>
             </div>
 
             {loading ? (
@@ -717,58 +781,93 @@ function Disponibilidad() {
                     }}
                   />
                   <span className="dash-muted">
-                    {horariosFiltrados.length} resultado
-                    {horariosFiltrados.length === 1 ? '' : 's'}
+                    {gruposJornada.length} jornada
+                    {gruposJornada.length === 1 ? '' : 's'}
                   </span>
                 </div>
-                {horariosFiltrados.length === 0 ? (
+                {gruposJornada.length === 0 ? (
                   <p className="dash-empty">No hay bloques que coincidan.</p>
                 ) : (
-                  <div className="dash-table-wrap">
-                    <table className="dash-table">
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Profesional</th>
-                          <th>Especialidad</th>
-                          <th>Estado</th>
-                          <th>Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {horariosPagina.map((h) => {
-                          const u = asSingle(h.usuarios)
-                          const nombreProf = u
-                            ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
-                            : 'Profesional'
-                          return (
-                            <tr key={h.id_horario}>
-                              <td>{formatFechaHora(h.fecha_inicio)}</td>
-                              <td>{nombreProf}</td>
-                              <td>{nombreEspecialidad(h)}</td>
-                              <td>
-                                <span className="dash-badge">
-                                  {ESTADO_LABEL[h.estado] ?? h.estado}
-                                </span>
-                              </td>
-                              <td>
-                                {h.estado === 'disponible' ? (
-                                  <button
-                                    type="button"
-                                    className="dash-btn-secondary"
-                                    onClick={() => void cancelarBloque(h.id_horario)}
-                                  >
-                                    Cancelar
-                                  </button>
-                                ) : (
-                                  '—'
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="jornadas">
+                    {gruposPagina.map((g) => {
+                      const est = estadoJornada(g)
+                      const disponibles = g.bloques.filter(
+                        (b) => b.estado === 'disponible',
+                      ).length
+                      const reservadas = g.bloques.filter(
+                        (b) => b.estado === 'reservada',
+                      ).length
+                      const horas = g.bloques
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            new Date(a.fecha_inicio).getTime() -
+                            new Date(b.fecha_inicio).getTime(),
+                        )
+                      return (
+                        <div key={`${g.fecha}-${g.idEspecialidad}-${g.idProfesional}`} className="jornada">
+                          <div className="jornada-header">
+                            <div>
+                              <strong>
+                                {new Date(
+                                  g.fecha + 'T00:00:00',
+                                ).toLocaleDateString('es-CL', {
+                                  weekday: 'long',
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                })}
+                              </strong>
+                              <span className="jornada-meta">
+                                {g.especialidad} · {g.profesional}
+                              </span>
+                            </div>
+                            <span className={`jornada-estado ${est.cls}`}>{est.label}</span>
+                          </div>
+                          <div className="jornada-resumen">
+                            {disponibles > 0 ? (
+                              <span className="jornada-count jornada-count-ok">
+                                {disponibles} disponible{disponibles === 1 ? '' : 's'}
+                              </span>
+                            ) : null}
+                            {reservadas > 0 ? (
+                              <span className="jornada-count jornada-count-res">
+                                {reservadas} reservada{reservadas === 1 ? '' : 's'}
+                              </span>
+                            ) : null}
+                            <span className="jornada-count">
+                              {g.bloques.length} en total
+                            </span>
+                          </div>
+                          <div className="jornada-horas">
+                            {horas.map((h) => (
+                              <span
+                                key={h.id_horario}
+                                className={`jornada-hora${h.estado === 'disponible' ? ' is-disponible' : h.estado === 'reservada' ? ' is-reservada' : ' is-no'}`}
+                                title={ESTADO_LABEL[h.estado] ?? h.estado}
+                              >
+                                {formatHoraMin(h.fecha_inicio)}
+                              </span>
+                            ))}
+                          </div>
+                          {disponibles > 0 ? (
+                            <button
+                              type="button"
+                              className="dash-btn-secondary jornada-cancelar"
+                              onClick={() =>
+                                void cancelarJornada({
+                                  fecha: g.fecha,
+                                  idEspecialidad: g.idEspecialidad,
+                                  idProfesional: g.idProfesional,
+                                })
+                              }
+                            >
+                              Cancelar jornada
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                     {totalPaginasBloques > 1 ? (
                       <div className="dash-pagination">
                         <button
