@@ -9,6 +9,7 @@ import Disponibilidad from './pages/Disponibilidad'
 import Expediente from './pages/Expediente'
 import Calculos from './pages/Calculos'
 import Rem from './pages/Rem'
+import OrdenesApoyo from './pages/OrdenesApoyo'
 import Finanzas from './pages/Finanzas'
 import Interconsultas from './pages/Interconsultas'
 import Landing from './pages/Landing'
@@ -103,6 +104,16 @@ function App() {
             <ProtectedRoute>
               <RoleRoute roles={['enfermeria']}>
                 <Rem />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ordenes-apoyo"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['unidad_apoyo']}>
+                <OrdenesApoyo />
               </RoleRoute>
             </ProtectedRoute>
           }

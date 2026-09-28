@@ -44,3 +44,50 @@
   gap: 0.45rem;
   flex-wrap: wrap;
 }
+
+.orden-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.orden-estado-pendiente {
+  background: #fff4e6;
+  color: #b45309;
+}
+
+.orden-estado-en_proceso {
+  background: #e8f1fa;
+  color: #0f4c81;
+}
+
+.orden-estado-completada {
+  background: #e7f6ec;
+  color: #1d7a3f;
+}
+
+.orden-estado-cancelada {
+  background: #fdecec;
+  color: #c0392b;
+}
+
+.doc-check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.doc-check-label input[type='checkbox'] {
+  accent-color: #0f4c81;
+  width: 16px;
+  height: 16px;
+}

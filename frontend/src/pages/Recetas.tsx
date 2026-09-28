@@ -25,6 +25,18 @@ type Certificado = {
   pacientes?: { nombres: string; apellidos: string; rut: string } | null
 }
 
+type OrdenExamen = {
+  id_orden: number
+  id_paciente: number
+  id_usuario_emisor: string
+  tipo_examen: string
+  indicaciones: string | null
+  enviada_a_apoyo: boolean
+  estado: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
+  created_at: string
+  pacientes?: { nombres: string; apellidos: string; rut: string } | null
+}
+
 const TIPOS_CERTIFICADO = [
   'Reposo laboral',
   'Atención médica',
@@ -61,18 +73,19 @@ function Recetas() {
 
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
+  const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  const [userId, setUserId] = useState('')
-  const [tab, setTab] = useState<'recetas' | 'certificados'>('recetas')
+const [userId, setUserId] = useState('')
+  const [tab, setTab] = useState<'recetas' | 'certificados' | 'ordenes'>('recetas')
   const [showForm, setShowForm] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [detalle, setDetalle] = useState<Receta | Certificado | null>(null)
+
   const POR_PAGINA = 10
 
   // Receta
@@ -85,6 +98,12 @@ function Recetas() {
   const [cTipo, setCTipo] = useState(TIPOS_CERTIFICADO[0])
   const [cDetalle, setCDetalle] = useState('')
 
+  // Orden de examen
+  const [oPaciente, setOPaciente] = useState('')
+  const [oTipo, setOTipo] = useState('')
+  const [oIndicaciones, setOIndicaciones] = useState('')
+  const [oEnviarApoyo, setOEnviarApoyo] = useState(true)
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -94,7 +113,7 @@ function Recetas() {
     } = await supabase.auth.getUser()
     if (user) setUserId(user.id)
 
-    const [recRes, certRes, pacRes] = await Promise.all([
+    const [recRes, certRes, ordRes, pacRes] = await Promise.all([
       supabase
         .from('recetas_medicas')
         .select(
@@ -107,6 +126,12 @@ function Recetas() {
           'id_certificado, id_paciente, id_usuario_emisor, tipo_certificado, detalle, fecha_emision, pacientes(nombres, apellidos, rut)',
         )
         .order('fecha_emision', { ascending: false }),
+      supabase
+        .from('ordenes_examen')
+        .select(
+          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, estado, created_at, pacientes(nombres, apellidos, rut)',
+        )
+        .order('created_at', { ascending: false }),
       supabase
         .from('pacientes')
         .select('id_paciente, rut, nombres, apellidos')
@@ -164,6 +189,33 @@ function Recetas() {
       setCertificados(rows)
     }
 
+    if (ordRes.error) {
+      setError((c) => c ?? (ordRes.error?.message || 'No se pudieron cargar las órdenes de examen.'))
+      setOrdenes([])
+    } else {
+      const rows = (ordRes.data ?? []).map((row) => {
+        const rel = row.pacientes as
+          | { nombres: string; apellidos: string; rut: string }
+          | { nombres: string; apellidos: string; rut: string }[]
+          | null
+        const p = Array.isArray(rel) ? rel[0] ?? null : rel
+        return {
+          id_orden: row.id_orden as number,
+          id_paciente: row.id_paciente as number,
+          id_usuario_emisor: row.id_usuario_emisor as string,
+          tipo_examen: row.tipo_examen as string,
+          indicaciones: row.indicaciones as string | null,
+          enviada_a_apoyo: row.enviada_a_apoyo as boolean,
+          estado: row.estado as OrdenExamen['estado'],
+          created_at: row.created_at as string,
+          pacientes: p
+            ? { nombres: p.nombres, apellidos: p.apellidos, rut: p.rut }
+            : null,
+        } satisfies OrdenExamen
+      })
+      setOrdenes(rows)
+    }
+
     if (!pacRes.error) {
       setPacientes((pacRes.data as Paciente[]) ?? [])
     }
@@ -184,6 +236,10 @@ function Recetas() {
     setCPaciente('')
     setCTipo(TIPOS_CERTIFICADO[0])
     setCDetalle('')
+    setOPaciente('')
+    setOTipo('')
+    setOIndicaciones('')
+    setOEnviarApoyo(true)
     setShowForm(true)
   }
 
@@ -217,7 +273,7 @@ function Recetas() {
         return
       }
       setSuccess('Receta médica emitida correctamente.')
-    } else {
+    } else if (tab === 'certificados') {
       if (!cPaciente || !cTipo) {
         setError('Selecciona un paciente y el tipo de certificado.')
         return
@@ -239,6 +295,31 @@ function Recetas() {
         return
       }
       setSuccess('Certificado clínico emitido correctamente.')
+    } else {
+      // Órdenes de examen
+      if (!oPaciente || !oTipo.trim()) {
+        setError('Selecciona un paciente y escribe el tipo de examen.')
+        return
+      }
+      setSaving(true)
+      const { error: insError } = await supabase.from('ordenes_examen').insert({
+        id_paciente: Number(oPaciente),
+        id_usuario_emisor: userId,
+        tipo_examen: oTipo.trim(),
+        indicaciones: oIndicaciones.trim() || null,
+        enviada_a_apoyo: oEnviarApoyo,
+        estado: 'pendiente',
+      })
+      setSaving(false)
+      if (insError) {
+        setError(insError.message || 'No se pudo emitir la orden de examen.')
+        return
+      }
+      setSuccess(
+        oEnviarApoyo
+          ? 'Orden de examen emitida y enviada al personal de apoyo.'
+          : 'Orden de examen emitida.',
+      )
     }
 
     setShowForm(false)
@@ -285,6 +366,31 @@ function Recetas() {
     await loadData()
   }
 
+  async function cancelarOrden(orden: OrdenExamen) {
+    const confirmado = window.confirm(
+      `¿Cancelar la orden de examen #${orden.id_orden}? Esta acción no se puede deshacer.`,
+    )
+    if (!confirmado) return
+
+    setError(null)
+    setSuccess(null)
+    setSaving(true)
+
+    const { error } = await supabase
+      .from('ordenes_examen')
+      .update({ estado: 'cancelada' })
+      .eq('id_orden', orden.id_orden)
+
+    setSaving(false)
+
+    if (error) {
+      setError(error.message || 'No se pudo cancelar la orden.')
+      return
+    }
+    setSuccess('Orden de examen cancelada.')
+    await loadData()
+  }
+
   const filtrarReceta = (r: Receta): boolean => {
     if (!busqueda.trim()) return true
     const q = busqueda.trim().toLowerCase()
@@ -301,11 +407,24 @@ function Recetas() {
       .includes(q)
   }
 
+  const filtrarOrden = (o: OrdenExamen): boolean => {
+    if (!busqueda.trim()) return true
+    const q = busqueda.trim().toLowerCase()
+    return `${o.tipo_examen} ${o.indicaciones ?? ''} ${o.pacientes?.nombres ?? ''} ${o.pacientes?.apellidos ?? ''} ${o.pacientes?.rut ?? ''} ${o.estado}`
+      .toLowerCase()
+      .includes(q)
+  }
+
   const recetasFiltradas = recetas.filter(filtrarReceta)
   const certificadosFiltrados = certificados.filter(filtrarCertificado)
+  const ordenesFiltradas = ordenes.filter(filtrarOrden)
 
   const listaActiva =
-    tab === 'recetas' ? recetasFiltradas : certificadosFiltrados
+    tab === 'recetas'
+      ? recetasFiltradas
+      : tab === 'certificados'
+        ? certificadosFiltrados
+        : ordenesFiltradas
   const totalPaginas = Math.max(1, Math.ceil(listaActiva.length / POR_PAGINA))
   const paginaSegura = Math.min(pagina, totalPaginas)
   const listaPagina = listaActiva.slice(
@@ -320,8 +439,8 @@ function Recetas() {
       <div className="dash-main">
         <header className="dash-topbar">
           <div>
-            <h2>Recetas y certificados</h2>
-            <p>Emisión de recetas médicas y certificados clínicos</p>
+            <h2>Documentos clínicos</h2>
+            <p>Emisión de recetas médicas, certificados clínicos y órdenes de examen</p>
           </div>
           {puedeEmitir ? (
             <button
@@ -329,7 +448,11 @@ function Recetas() {
               className="dash-btn-primary"
               onClick={openForm}
             >
-              {tab === 'recetas' ? 'Nueva receta' : 'Nuevo certificado'}
+              {tab === 'recetas'
+                ? 'Nueva receta'
+                : tab === 'certificados'
+                  ? 'Nuevo certificado'
+                  : 'Nueva orden de examen'}
             </button>
           ) : null}
         </header>
@@ -365,16 +488,33 @@ function Recetas() {
             >
               Certificados
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'ordenes'}
+              className={`recetas-tab${tab === 'ordenes' ? ' is-active' : ''}`}
+              onClick={() => setTab('ordenes')}
+            >
+              Órdenes de examen
+            </button>
           </div>
 
           <div className="dash-card">
             <div className="dash-card-header">
               <div>
-                <h3>{tab === 'recetas' ? 'Recetas médicas' : 'Certificados clínicos'}</h3>
+                <h3>
+                  {tab === 'recetas'
+                    ? 'Recetas médicas'
+                    : tab === 'certificados'
+                      ? 'Certificados clínicos'
+                      : 'Órdenes de examen'}
+                </h3>
                 <p className="dash-muted">
                   {tab === 'recetas'
                     ? 'Medicamentos e indicaciones emitidos por el profesional'
-                    : 'Reposo, atención, aptitud y otros certificados'}
+                    : tab === 'certificados'
+                      ? 'Reposo, atención, aptitud y otros certificados'
+                      : 'Exámenes solicitados por el doctor, opcionalmente enviados a unidad de apoyo'}
                 </p>
               </div>
               <span className="dash-badge">
@@ -382,7 +522,9 @@ function Recetas() {
                   ? '…'
                   : tab === 'recetas'
                     ? `${recetas.length} registro${recetas.length === 1 ? '' : 's'}`
-                    : `${certificados.length} registro${certificados.length === 1 ? '' : 's'}`}
+                    : tab === 'certificados'
+                      ? `${certificados.length} registro${certificados.length === 1 ? '' : 's'}`
+                      : `${ordenes.length} registro${ordenes.length === 1 ? '' : 's'}`}
               </span>
             </div>
 
@@ -423,29 +565,74 @@ function Recetas() {
                         <tr>
                           <th>ID</th>
                           <th>Paciente</th>
-                          <th>{tab === 'recetas' ? 'Medicamentos' : 'Tipo'}</th>
-                          <th>{tab === 'recetas' ? 'Indicaciones' : 'Detalle'}</th>
-                          <th>Emisión</th>
+                          <th>{tab === 'recetas' ? 'Medicamentos' : tab === 'certificados' ? 'Tipo' : 'Examen'}</th>
+                          <th>{tab === 'recetas' ? 'Indicaciones' : tab === 'certificados' ? 'Detalle' : 'Estado'}</th>
+                          <th>{tab === 'ordenes' ? 'Fecha' : 'Emisión'}</th>
                           <th>Acción</th>
                         </tr>
                       </thead>
                       <tbody>
                         {listaPagina.map((item) => {
-                          const esReceta = 'medicamentos' in item
                           const paciente = item.pacientes
+                          if (tab === 'ordenes') {
+                            const o = item as OrdenExamen
+                            return (
+                              <tr key={o.id_orden}>
+                                <td>#{o.id_orden}</td>
+                                <td>
+                                  <div>
+                                    {paciente
+                                      ? `${paciente.nombres} ${paciente.apellidos}`
+                                      : 'Paciente #'}
+                                  </div>
+                                  {paciente?.rut ? (
+                                    <div className="dash-muted">RUT {paciente.rut}</div>
+                                  ) : null}
+                                </td>
+                                <td>
+                                  <span className="recetas-chip">{o.tipo_examen}</span>
+                                </td>
+                                <td>
+                                  <span className={`orden-estado orden-estado-${o.estado}`}>
+                                    {o.estado}
+                                  </span>
+                                  {o.enviada_a_apoyo ? (
+                                    <div className="dash-muted">Enviada a unidad de apoyo</div>
+                                  ) : null}
+                                </td>
+                                <td>{formatFecha(o.created_at)}</td>
+                                <td>
+                                  <div className="recetas-acciones">
+                                    {puedeEmitir && o.id_usuario_emisor === userId ? (
+                                      <button
+                                        type="button"
+                                        className="dash-btn-secondary"
+                                        onClick={() => void cancelarOrden(o)}
+                                        disabled={saving}
+                                      >
+                                        Cancelar
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          }
+                          const esReceta = 'medicamentos' in item
+                          const doc = item as Receta | Certificado
                           return (
                             <tr
                               key={
                                 esReceta
-                                  ? (item as Receta).id_receta
-                                  : (item as Certificado).id_certificado
+                                  ? (doc as Receta).id_receta
+                                  : (doc as Certificado).id_certificado
                               }
                             >
                               <td>
                                 #
                                 {esReceta
-                                  ? (item as Receta).id_receta
-                                  : (item as Certificado).id_certificado}
+                                  ? (doc as Receta).id_receta
+                                  : (doc as Certificado).id_certificado}
                               </td>
                               <td>
                                 <div>
@@ -459,33 +646,33 @@ function Recetas() {
                               </td>
                               <td>
                                 {esReceta ? (
-                                  (item as Receta).medicamentos
+                                  (doc as Receta).medicamentos
                                 ) : (
                                   <span className="recetas-chip">
-                                    {(item as Certificado).tipo_certificado}
+                                    {(doc as Certificado).tipo_certificado}
                                   </span>
                                 )}
                               </td>
                               <td>
                                 {esReceta
-                                  ? (item as Receta).indicaciones || '—'
-                                  : (item as Certificado).detalle || '—'}
+                                  ? (doc as Receta).indicaciones || '—'
+                                  : (doc as Certificado).detalle || '—'}
                               </td>
-                              <td>{formatFecha(item.fecha_emision)}</td>
+                              <td>{formatFecha(doc.fecha_emision)}</td>
                               <td>
                                 <div className="recetas-acciones">
                                   <button
                                     type="button"
                                     className="dash-btn-secondary"
-                                    onClick={() => setDetalle(item)}
+                                    onClick={() => setDetalle(doc)}
                                   >
                                     Ver detalle
                                   </button>
-                                  {puedeEmitir && item.id_usuario_emisor === userId ? (
+                                  {puedeEmitir && doc.id_usuario_emisor === userId ? (
                                     <button
                                       type="button"
                                       className="dash-btn-danger"
-                                      onClick={() => void handleDelete(item)}
+                                      onClick={() => void handleDelete(doc)}
                                       disabled={saving}
                                     >
                                       Eliminar
@@ -546,9 +733,17 @@ function Recetas() {
             <div className="dash-modal-header">
               <div>
                 <h3 id="nuevo-doc-title">
-                  {tab === 'recetas' ? 'Nueva receta médica' : 'Nuevo certificado'}
+                  {tab === 'recetas'
+                    ? 'Nueva receta médica'
+                    : tab === 'certificados'
+                      ? 'Nuevo certificado'
+                      : 'Nueva orden de examen'}
                 </h3>
-                <p>El documento queda firmado digitalmente y es inmutable una vez guardado.</p>
+                <p>
+                  {tab === 'ordenes'
+                    ? 'Solicita un examen para el paciente. Puedes enviarla al personal de apoyo.'
+                    : 'El documento queda firmado digitalmente y es inmutable una vez guardado.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -566,11 +761,19 @@ function Recetas() {
                 <label htmlFor="doc-paciente">Paciente</label>
                 <select
                   id="doc-paciente"
-                  value={tab === 'recetas' ? rPaciente : cPaciente}
+                  value={
+                    tab === 'recetas'
+                      ? rPaciente
+                      : tab === 'certificados'
+                        ? cPaciente
+                        : oPaciente
+                  }
                   onChange={(e) =>
                     tab === 'recetas'
                       ? setRPaciente(e.target.value)
-                      : setCPaciente(e.target.value)
+                      : tab === 'certificados'
+                        ? setCPaciente(e.target.value)
+                        : setOPaciente(e.target.value)
                   }
                   required
                   disabled={saving}
@@ -612,7 +815,7 @@ function Recetas() {
                     />
                   </div>
                 </>
-              ) : (
+              ) : tab === 'certificados' ? (
                 <>
                   <div className="dash-field">
                     <label htmlFor="doc-tipo">Tipo de certificado</label>
@@ -641,6 +844,42 @@ function Recetas() {
                     />
                   </div>
                 </>
+              ) : (
+                <>
+                  <div className="dash-field">
+                    <label htmlFor="doc-tipo-examen">Tipo de examen</label>
+                    <input
+                      id="doc-tipo-examen"
+                      type="text"
+                      value={oTipo}
+                      onChange={(e) => setOTipo(e.target.value)}
+                      placeholder="Ej. Hemograma, Radiografía de tórax, Perfil lipídico…"
+                      required
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="dash-field">
+                    <label htmlFor="doc-ord-indicaciones">Indicaciones (opcional)</label>
+                    <textarea
+                      id="doc-ord-indicaciones"
+                      value={oIndicaciones}
+                      onChange={(e) => setOIndicaciones(e.target.value)}
+                      placeholder="Ayuno, preparación, observaciones…"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="dash-field">
+                    <label className="doc-check-label">
+                      <input
+                        type="checkbox"
+                        checked={oEnviarApoyo}
+                        onChange={(e) => setOEnviarApoyo(e.target.checked)}
+                        disabled={saving}
+                      />
+                      Enviar esta orden al personal de apoyo (laboratorio / imagenología)
+                    </label>
+                  </div>
+                </>
               )}
 
               <div className="dash-form-actions">
@@ -657,7 +896,9 @@ function Recetas() {
                     ? 'Guardando…'
                     : tab === 'recetas'
                       ? 'Guardar receta'
-                      : 'Guardar certificado'}
+                      : tab === 'certificados'
+                        ? 'Guardar certificado'
+                        : 'Guardar orden'}
                 </button>
               </div>
             </form>

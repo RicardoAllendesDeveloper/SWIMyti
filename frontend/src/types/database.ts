@@ -149,3 +149,15 @@ export type CertificadoClinico = {
   detalle?: string | null
   fecha_emision: string
 }
+
+export type OrdenExamen = {
+  id_orden: number
+  id_paciente: number
+  id_usuario_emisor: string
+  tipo_examen: string
+  indicaciones?: string | null
+  enviada_a_apoyo: boolean
+  estado: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
+  created_at: string
+  pacientes?: Pick<Paciente, 'nombres' | 'apellidos' | 'rut'> | null
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
-import type { AnexoClinico, Cita, Interconsulta } from '../types/database'
+import type { AnexoClinico, Cita, Interconsulta, OrdenExamen } from '../types/database'
 import '../styles/Portal.css'
 
 function formatFechaHora(value: string): string {
@@ -72,6 +72,7 @@ function Portal() {
   const [certificados, setCertificados] = useState<Certificado[]>([])
   const [anexos, setAnexos] = useState<AnexoClinico[]>([])
   const [interconsultas, setInterconsultas] = useState<Interconsulta[]>([])
+  const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [pacienteNombre, setPacienteNombre] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -109,7 +110,7 @@ function Portal() {
 
     setPacienteNombre(`${pac.nombres} ${pac.apellidos}`)
 
-    const [citasRes, recRes, certRes, anexRes, icRes] = await Promise.all([
+    const [citasRes, recRes, certRes, anexRes, icRes, ordRes] = await Promise.all([
       supabase
         .from('citas')
         .select(
@@ -155,6 +156,13 @@ function Portal() {
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('ordenes_examen')
+        .select(
+          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, estado, created_at',
+        )
+        .eq('id_paciente', pac.id_paciente)
+        .order('created_at', { ascending: false }),
     ])
 
     if (citasRes.error) setError(citasRes.error.message)
@@ -164,6 +172,7 @@ function Portal() {
     if (!certRes.error) setCertificados((certRes.data ?? []) as Certificado[])
     if (!anexRes.error) setAnexos((anexRes.data ?? []) as AnexoClinico[])
     if (!icRes.error) setInterconsultas((icRes.data ?? []) as Interconsulta[])
+    if (!ordRes.error) setOrdenes((ordRes.data ?? []) as OrdenExamen[])
 
     setLoading(false)
   }, [])
@@ -468,6 +477,45 @@ function Portal() {
                               Ver / descargar
                             </a>
                           ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="dash-card">
+                <div className="dash-card-header">
+                  <div>
+                    <h3>Mis órdenes de examen</h3>
+                    <p className="dash-muted">Exámenes solicitados por tus profesionales</p>
+                  </div>
+                  <span className="dash-badge">{ordenes.length}</span>
+                </div>
+                {ordenes.length === 0 ? (
+                  <p className="dash-empty">No tienes órdenes de examen registradas.</p>
+                ) : (
+                  <ul className="portal-list">
+                    {ordenes.map((o) => (
+                      <li key={o.id_orden} className="portal-item">
+                        <div>
+                          <strong>{o.tipo_examen}</strong>
+                          {o.indicaciones ? (
+                            <p className="portal-muted">Indicaciones: {o.indicaciones}</p>
+                          ) : null}
+                          <p className="portal-muted">
+                            Estado:{' '}
+                            <span className="portal-estado">
+                              {o.estado === 'en_proceso'
+                                ? 'En proceso'
+                                : o.estado === 'completada'
+                                  ? 'Completada'
+                                  : o.estado === 'cancelada'
+                                    ? 'Cancelada'
+                                    : 'Pendiente'}
+                            </span>
+                          </p>
+                          <p className="portal-muted">{formatFecha(o.created_at)}</p>
                         </div>
                       </li>
                     ))}

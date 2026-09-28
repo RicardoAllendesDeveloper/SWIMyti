@@ -93,6 +93,7 @@ export type Modulo =
   | 'recetas'
   | 'calculos'
   | 'rem'
+  | 'ordenes_apoyo'
 
 /**
  * Módulos visibles por rol. Controla la navegación (sidebar) y las rutas.
@@ -111,7 +112,7 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
   doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos', 'rem'],
   enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos', 'rem'],
   administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
-  unidad_apoyo: ['pacientes'],
+  unidad_apoyo: ['pacientes', 'ordenes_apoyo'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
 
