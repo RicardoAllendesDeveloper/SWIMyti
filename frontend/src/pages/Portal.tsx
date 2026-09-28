@@ -176,7 +176,7 @@ function Portal() {
         .eq('estado', 'disponible')
         .gte('fecha_inicio', new Date().toISOString())
         .order('fecha_inicio', { ascending: true })
-        .limit(40),
+        .limit(15000),
     ])
 
     if (citasRes.error) setError(citasRes.error.message)

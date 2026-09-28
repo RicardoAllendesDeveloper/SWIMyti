@@ -30,7 +30,11 @@ function formatearHora(value: string): string {
   }
 }
 
-const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
 
 function CalendarioDisponibilidad({
   bloques,
@@ -41,7 +45,6 @@ function CalendarioDisponibilidad({
   const hoy = new Date()
   const hoyClave = claveDia(hoy)
   const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth()) // 0-11
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null)
 
   // Bloques agrupados por día
@@ -56,44 +59,27 @@ function CalendarioDisponibilidad({
     return mapa
   }, [bloques])
 
-  // Días del mes visible
-  const celdas = useMemo(() => {
-    const primerDia = new Date(anio, mes, 1)
-    // Lunes como primer día: getDay() dom=0 -> desplazar
-    const offset = (primerDia.getDay() + 6) % 7
-    const diasEnMes = new Date(anio, mes + 1, 0).getDate()
-    const celdasArr: { dia: number | null; fecha: string }[] = []
-    for (let i = 0; i < offset; i++) celdasArr.push({ dia: null, fecha: '' })
-    for (let d = 1; d <= diasEnMes; d++) {
-      celdasArr.push({
-        dia: d,
-        fecha: claveDia(new Date(anio, mes, d)),
-      })
+  // Construcción de los 12 meses del año visible
+  const meses = useMemo(() => {
+    const arr: {
+      mes: number
+      nombre: string
+      celdas: { dia: number | null; fecha: string }[]
+    }[] = []
+    for (let mes = 0; mes < 12; mes++) {
+      const primerDia = new Date(anio, mes, 1)
+      const offset = (primerDia.getDay() + 6) % 7 // lunes primero
+      const diasEnMes = new Date(anio, mes + 1, 0).getDate()
+      const celdas: { dia: number | null; fecha: string }[] = []
+      for (let i = 0; i < offset; i++) celdas.push({ dia: null, fecha: '' })
+      for (let d = 1; d <= diasEnMes; d++) {
+        celdas.push({ dia: d, fecha: claveDia(new Date(anio, mes, d)) })
+      }
+      arr.push({ mes, nombre: MESES[mes], celdas })
     }
-    return celdasArr
-  }, [anio, mes])
+    return arr
+  }, [anio])
 
-  const nombreMes = new Date(anio, mes, 1).toLocaleString('es-CL', {
-    month: 'long',
-    year: 'numeric',
-  })
-
-  function cambiarMes(delta: number) {
-    let nuevoMes = mes + delta
-    let nuevoAnio = anio
-    if (nuevoMes < 0) {
-      nuevoMes = 11
-      nuevoAnio -= 1
-    } else if (nuevoMes > 11) {
-      nuevoMes = 0
-      nuevoAnio += 1
-    }
-    setMes(nuevoMes)
-    setAnio(nuevoAnio)
-    setDiaSeleccionado(null)
-  }
-
-  // Horas del día seleccionado, paginadas de 10
   const horasDelDia = diaSeleccionado ? (bloquesPorDia.get(diaSeleccionado) ?? []) : []
   const [pagina, setPagina] = useState(1)
   const POR_PAGINA = 10
@@ -113,62 +99,79 @@ function CalendarioDisponibilidad({
     setPagina(1)
   }
 
+  function cambiarAnio(delta: number) {
+    setAnio(anio + delta)
+    setDiaSeleccionado(null)
+  }
+
   return (
     <div className="cal-disp">
-      <div className="cal-disp-mes">
+      <div className="cal-disp-anio">
         <button
           type="button"
           className="cal-disp-nav"
-          onClick={() => cambiarMes(-1)}
-          aria-label="Mes anterior"
+          onClick={() => cambiarAnio(-1)}
+          aria-label="Año anterior"
         >
           ←
         </button>
-        <span className="cal-disp-nombre">{nombreMes}</span>
+        <span className="cal-disp-anio-nombre">Año {anio}</span>
         <button
           type="button"
           className="cal-disp-nav"
-          onClick={() => cambiarMes(1)}
-          aria-label="Mes siguiente"
+          onClick={() => cambiarAnio(1)}
+          aria-label="Año siguiente"
         >
           →
         </button>
       </div>
 
-      <div className="cal-disp-grid cal-disp-grid-head">
-        {DIAS_SEMANA.map((d) => (
-          <span key={d} className="cal-disp-dia-nombre">{d}</span>
+      <div className="cal-disp-meses">
+        {meses.map((m) => (
+          <div key={m.mes} className="cal-disp-mes-card">
+            <div className="cal-disp-mes-titulo">{m.nombre}</div>
+            <div className="cal-disp-grid cal-disp-grid-head">
+              {DIAS_SEMANA.map((d) => (
+                <span key={d} className="cal-disp-dia-nombre">{d}</span>
+              ))}
+            </div>
+            <div className="cal-disp-grid">
+              {m.celdas.map((c, idx) => {
+                if (c.dia === null) {
+                  return <span key={`v-${idx}`} className="cal-disp-dia cal-disp-dia-vacio" />
+                }
+                const tiene = (bloquesPorDia.get(c.fecha)?.length ?? 0) > 0
+                const esHoy = c.fecha === hoyClave
+                const seleccionado = c.fecha === diaSeleccionado
+                const pasado = c.fecha < hoyClave
+                return (
+                  <button
+                    key={c.fecha}
+                    type="button"
+                    className={`cal-disp-dia${tiene ? ' cal-disp-dia-disponible' : ' cal-disp-dia-no'}${esHoy ? ' cal-disp-dia-hoy' : ''}${seleccionado ? ' cal-disp-dia-seleccionado' : ''}${pasado ? ' cal-disp-dia-pasado' : ''}`}
+                    onClick={() => tiene && !pasado && seleccionarDia(c.fecha)}
+                    disabled={!tiene || pasado}
+                    title={tiene ? 'Hay horas disponibles' : 'Sin horas disponibles'}
+                  >
+                    {c.dia}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         ))}
-      </div>
-
-      <div className="cal-disp-grid">
-        {celdas.map((c, idx) => {
-          if (c.dia === null) {
-            return <span key={`v-${idx}`} className="cal-disp-dia cal-disp-dia-vacio" />
-          }
-          const tiene = (bloquesPorDia.get(c.fecha)?.length ?? 0) > 0
-          const esHoy = c.fecha === hoyClave
-          const seleccionado = c.fecha === diaSeleccionado
-          const pasado = c.fecha < hoyClave
-          return (
-            <button
-              key={c.fecha}
-              type="button"
-              className={`cal-disp-dia${tiene ? ' cal-disp-dia-disponible' : ' cal-disp-dia-no'}${esHoy ? ' cal-disp-dia-hoy' : ''}${seleccionado ? ' cal-disp-dia-seleccionado' : ''}${pasado ? ' cal-disp-dia-pasado' : ''}`}
-              onClick={() => tiene && !pasado && seleccionarDia(c.fecha)}
-              disabled={!tiene || pasado}
-              title={tiene ? 'Hay horas disponibles' : 'Sin horas disponibles'}
-            >
-              {c.dia}
-            </button>
-          )
-        })}
       </div>
 
       {diaSeleccionado && horasDelDia.length > 0 ? (
         <div className="cal-disp-horas">
           <p className="cal-disp-horas-titulo">
-            Horas disponibles del {new Date(diaSeleccionado + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}:
+            Horas disponibles del{' '}
+            {new Date(diaSeleccionado + 'T00:00:00').toLocaleDateString('es-CL', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+            :
           </p>
           <div className="cal-disp-horas-lista">
             {horasPagina.map((b) => (
