@@ -166,7 +166,7 @@ function Portal() {
       supabase
         .from('ordenes_examen')
         .select(
-          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, modalidad, toma_muestra, fecha_toma_muestra, estado, created_at',
+          'id_orden, id_paciente, id_usuario_emisor, tipo_examen, indicaciones, enviada_a_apoyo, modalidad, toma_muestra, fecha_toma_muestra, id_horario, estado, created_at',
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
@@ -312,6 +312,7 @@ function Portal() {
       .update({
         toma_muestra: 'agendada',
         fecha_toma_muestra: fechaBloque,
+        id_horario: idHorario,
       })
       .eq('id_orden', orden.id_orden)
 
@@ -331,16 +332,70 @@ function Portal() {
     setError(null)
     setSuccess(null)
 
+    // 1) Cancelar la cita asociada (el trigger libera el bloque)
+    if (orden.id_horario) {
+      const { error: citaError } = await supabase
+        .from('citas')
+        .update({ estado: 'cancelada' })
+        .eq('id_horario', orden.id_horario)
+        .eq('id_paciente', idPacienteEstado)
+        .eq('estado', 'reservada')
+
+      if (citaError) {
+        setError(citaError.message || 'No se pudo cancelar la cita de la toma de muestra.')
+        return
+      }
+    }
+
+    // 2) Marcar la orden como pendiente
     const { error } = await supabase
       .from('ordenes_examen')
-      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null })
+      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null, id_horario: null })
       .eq('id_orden', orden.id_orden)
 
     if (error) {
       setError(error.message || 'No se pudo cancelar la toma de muestra.')
       return
     }
-    setSuccess('Toma de muestra cancelada.')
+    setSuccess('Toma de muestra cancelada. El horario vuelve a estar disponible.')
+    await loadData()
+  }
+
+  async function cambiarTomaMuestra(orden: OrdenExamen) {
+    setError(null)
+    setSuccess(null)
+
+    const confirmar = window.confirm(
+      '¿Deseas cambiar la hora de tu toma de muestra? Se liberará tu hora actual.',
+    )
+    if (!confirmar) return
+
+    // 1) Cancelar la cita asociada (el trigger libera el bloque)
+    if (orden.id_horario) {
+      const { error: citaError } = await supabase
+        .from('citas')
+        .update({ estado: 'cancelada' })
+        .eq('id_horario', orden.id_horario)
+        .eq('id_paciente', idPacienteEstado)
+        .eq('estado', 'reservada')
+
+      if (citaError) {
+        setError(citaError.message || 'No se pudo liberar tu hora actual.')
+        return
+      }
+    }
+
+    // 2) Marcar la orden como pendiente para volver a elegir hora
+    const { error } = await supabase
+      .from('ordenes_examen')
+      .update({ toma_muestra: 'pendiente', fecha_toma_muestra: null, id_horario: null })
+      .eq('id_orden', orden.id_orden)
+
+    if (error) {
+      setError(error.message || 'No se pudo cambiar la hora.')
+      return
+    }
+    setSuccess('Tu hora fue liberada. Elige una nueva hora disponible.')
     await loadData()
   }
 
@@ -723,13 +778,39 @@ function Portal() {
                           ) : null}
                           {o.modalidad === 'en_recinto' &&
                           o.toma_muestra === 'agendada' ? (
-                            <button
-                              type="button"
-                              className="dash-btn-secondary"
-                              onClick={() => void cancelarTomaMuestra(o)}
-                            >
-                              Cancelar toma
-                            </button>
+                            <div className="toma-cambiar">
+                              <p className="portal-muted">
+                                <strong>Tienes tu hora de toma de muestra agendada.</strong>{' '}
+                                {o.fecha_toma_muestra
+                                  ? `Para el ${formatFechaHora(o.fecha_toma_muestra)}.`
+                                  : ''}
+                              </p>
+                              <p className="portal-muted">
+                                ¿Deseas cambiar tu hora? Los cambios se aceptan hasta
+                                1 hora antes de la hora agendada.
+                              </p>
+                              <div className="portal-acciones-fila">
+                                <button
+                                  type="button"
+                                  className="dash-btn-secondary"
+                                  onClick={() => void cambiarTomaMuestra(o)}
+                                  disabled={o.fecha_toma_muestra
+                                    ? new Date(o.fecha_toma_muestra).getTime() -
+                                        Date.now() <
+                                      60 * 60 * 1000
+                                    : false}
+                                >
+                                  Cambiar hora
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dash-btn-secondary"
+                                  onClick={() => void cancelarTomaMuestra(o)}
+                                >
+                                  Cancelar toma
+                                </button>
+                              </div>
+                            </div>
                           ) : null}
                         </div>
                       </li>

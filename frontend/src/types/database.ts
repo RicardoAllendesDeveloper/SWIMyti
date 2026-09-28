@@ -160,6 +160,7 @@ export type OrdenExamen = {
   modalidad: 'en_recinto' | 'otro_recinto'
   toma_muestra: 'pendiente' | 'agendada' | 'realizada'
   fecha_toma_muestra?: string | null
+  id_horario?: number | null
   estado: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
   created_at: string
   pacientes?: Pick<Paciente, 'nombres' | 'apellidos' | 'rut'> | null
