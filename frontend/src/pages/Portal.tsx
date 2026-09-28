@@ -219,15 +219,14 @@ function Portal() {
     setSuccess(null)
     setCancelando(idCita)
 
-    const { error } = await supabase
-      .from('citas')
-      .update({ estado: 'cancelada' })
-      .eq('id_cita', idCita)
+    const { data, error } = await supabase.rpc('fn_paciente_liberar_cita', {
+      p_id_cita: idCita,
+    })
 
     setCancelando(null)
 
-    if (error) {
-      setError(error.message || 'No se pudo cancelar la cita.')
+    if (error || !data?.ok) {
+      setError(error?.message || data?.error || 'No se pudo cancelar la cita.')
       return
     }
 
@@ -460,14 +459,24 @@ function Portal() {
                           </p>
                         </div>
                         {cita.estado === 'reservada' ? (
-                          <button
-                            type="button"
-                            className="dash-btn-secondary"
-                            onClick={() => void cancelarCita(cita.id_cita)}
-                            disabled={cancelando === cita.id_cita}
-                          >
-                            {cancelando === cita.id_cita ? 'Cancelando…' : 'Cancelar'}
-                          </button>
+                          cita.horarios_disponibles &&
+                          new Date(cita.horarios_disponibles.fecha_inicio).getTime() -
+                            Date.now() <
+                            60 * 60 * 1000 ? (
+                            <p className="portal-muted">
+                              No puedes cancelar: faltan menos de 60 minutos para tu
+                              atención.
+                            </p>
+                          ) : (
+                            <button
+                              type="button"
+                              className="dash-btn-secondary"
+                              onClick={() => void cancelarCita(cita.id_cita)}
+                              disabled={cancelando === cita.id_cita}
+                            >
+                              {cancelando === cita.id_cita ? 'Cancelando…' : 'Cancelar'}
+                            </button>
+                          )
                         ) : null}
                       </li>
                     ))}
