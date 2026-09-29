@@ -8,21 +8,26 @@ type SidebarProps = {
   moduloActivo?: Modulo
 }
 
-const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] = [
-  { modulo: 'portal', label: 'Mi portal', ruta: '/portal', roles: ['paciente'] },
-  { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas', roles: ['*'] },
-  { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard', roles: ['*'] },
-  { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes', roles: ['*'] },
-  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad', roles: ['administrador', 'doctor', 'enfermeria', 'jefatura'] },
-  { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas', roles: ['*'] },
-  { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos', roles: ['administrador', 'administrativo'] },
-  { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas', roles: ['administrador', 'administrativo'] },
-  { modulo: 'recetas', label: 'Generar documentos', ruta: '/recetas', roles: ['doctor'] },
-  { modulo: 'calculos', label: 'Cálculos clínicos', ruta: '/calculos', roles: ['doctor', 'enfermeria'] },
-  { modulo: 'rem', label: 'REM', ruta: '/rem', roles: ['enfermeria'] },
-  { modulo: 'bandeja_ordenes', label: 'Bandeja de órdenes', ruta: '/bandeja-ordenes', roles: ['unidad_apoyo'] },
-  { modulo: 'usuarios', label: 'Usuarios', ruta: '/usuarios', roles: ['administrador'] },
-  { modulo: 'config_recinto', label: 'Configuración del recinto', ruta: '/config-recinto', roles: ['administrador'] },
+// Solo etiqueta y ruta. La visibilidad NO se decide acá: la resuelve
+// `tieneModuloConRoles` contra MODULOS_POR_ROL, que es la unica fuente de
+// verdad. Cada item tenia ademas su propio `roles`, que no se leia en ningun
+// lado y ya quedo desactualizado (rem decia enfermeria). No volver a agregarlo:
+// el filtro no va por aca.
+const ITEMS: { modulo: Modulo; label: string; ruta: string }[] = [
+  { modulo: 'portal', label: 'Mi portal', ruta: '/portal' },
+  { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas' },
+  { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard' },
+  { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes' },
+  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad' },
+  { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas' },
+  { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos' },
+  { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas' },
+  { modulo: 'recetas', label: 'Generar documentos', ruta: '/recetas' },
+  { modulo: 'calculos', label: 'Cálculos clínicos', ruta: '/calculos' },
+  { modulo: 'rem', label: 'REM', ruta: '/rem' },
+  { modulo: 'bandeja_ordenes', label: 'Bandeja de órdenes', ruta: '/bandeja-ordenes' },
+  { modulo: 'usuarios', label: 'Usuarios', ruta: '/usuarios' },
+  { modulo: 'config_recinto', label: 'Configuración del recinto', ruta: '/config-recinto' },
 ]
 
 function Sidebar({ moduloActivo }: SidebarProps) {
