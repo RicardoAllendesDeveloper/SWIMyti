@@ -391,6 +391,8 @@ function Disponibilidad() {
     idProfesional: string
     profesional: string
     bloques: HorarioDisponible[]
+    /** Rango horario de la carga, para distinguir dos cargas del mismo día. */
+    rangoHorario: string
   }
   const gruposJornada: GrupoJornada[] = (() => {
     const mapa = new Map<string, GrupoJornada>()
@@ -409,12 +411,23 @@ function Disponibilidad() {
             ? `${u.nombres ?? ''} ${u.apellidos ?? ''}`.trim()
             : 'Profesional',
           bloques: [],
+          rangoHorario: '',
         }
         mapa.set(k, g)
       }
       g.bloques.push(h)
     }
-    return Array.from(mapa.values()).sort((a, b) => a.fecha.localeCompare(b.fecha))
+    // Un mismo día puede tener más de una carga del mismo profesional. Se
+    // etiqueta cada una con su rango horario para que no se lean como una sola.
+    for (const g of mapa.values()) {
+      const horas = g.bloques.map((b) => b.fecha_inicio).sort()
+      g.rangoHorario = `${formatHoraMin(horas[0])} – ${formatHoraMin(horas[horas.length - 1])}`
+    }
+    return Array.from(mapa.values()).sort((a, b) =>
+      a.fecha === b.fecha
+        ? a.rangoHorario.localeCompare(b.rangoHorario)
+        : a.fecha.localeCompare(b.fecha),
+    )
   })()
 
   // Paginación por jornada (grupo)
@@ -449,8 +462,12 @@ function Disponibilidad() {
       <div className="dash-main">
         <header className="dash-topbar">
           <div>
-            <h2>Agenda</h2>
-            <p>Publica tu disponibilidad y gestiona tus atenciones</p>
+              <h2>Agenda</h2>
+              <p>
+                {puedeCoordinarAgenda
+                  ? 'Coordina la carga horaria de los profesionales y gestiona las atenciones'
+                  : 'Consulta tu carga horaria y gestiona tus atenciones'}
+              </p>
           </div>
         </header>
 
@@ -804,19 +821,29 @@ function Disponibilidad() {
                             new Date(b.fecha_inicio).getTime(),
                         )
                       return (
-                        <div key={`${g.fecha}-${g.idEspecialidad}-${g.idProfesional}`} className="jornada">
+                        <div
+                          key={`${g.fecha}-${g.idEspecialidad}-${g.idProfesional}-${g.rangoHorario}`}
+                          className="jornada"
+                        >
                           <div className="jornada-header">
                             <div>
                               <strong>
-                                {new Date(
-                                  g.fecha + 'T00:00:00',
-                                ).toLocaleDateString('es-CL', {
-                                  weekday: 'long',
-                                  day: 'numeric',
-                                  month: 'long',
-                                  year: 'numeric',
-                                })}
+                                {/*
+                                  La clave ya es una fecha civil chilena: se
+                                  interpreta en UTC para formatearla.
+                                */}
+                                {new Date(`${g.fecha}T00:00:00Z`).toLocaleDateString(
+                                  'es-CL',
+                                  {
+                                    weekday: 'long',
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                    timeZone: 'UTC',
+                                  },
+                                )}
                               </strong>
+                              <span className="jornada-horario">{g.rangoHorario}</span>
                               <span className="jornada-meta">
                                 {g.especialidad} · {g.profesional}
                               </span>
