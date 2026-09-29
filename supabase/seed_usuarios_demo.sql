@@ -37,7 +37,6 @@ declare
   v_apellidos text;
   v_pwd      text;
   v_rol_jef  bigint;
-  v_esp_pac  bigint;
   r record;
 begin
   -- ---------------------------------------------------------------
@@ -102,13 +101,9 @@ begin
   end loop;
 
   -- ---------------- Paciente: vincular registro en pacientes ----------------
-  select u.id_usuario, p.id_especialidad into v_id, v_esp_pac
-  from public.usuarios u
-  left join lateral (
-    select dse.id_especialidad from public.doctores_especialidades dse
-    where dse.id_doctor = u.id_usuario order by dse.id_especialidad limit 1
-  ) dse on true
-  where u.email = 'paciente.demo@swimyti.cl';
+  select id_usuario into v_id
+  from public.usuarios
+  where email = 'paciente.demo@swimyti.cl';
 
   if v_id is not null then
     if not exists (
@@ -152,7 +147,7 @@ begin
       limit 2
     ) t;
 
-    -- También es enfermera, así que specialty clinica para que pueda atender.
+    -- También es enfermera, así que especialidad clínica para que pueda atender.
     if not exists (
       select 1 from public.doctores_especialidades where id_doctor = v_id
     ) then
