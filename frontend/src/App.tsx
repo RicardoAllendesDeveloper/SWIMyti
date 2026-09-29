@@ -44,7 +44,9 @@ function App() {
           path="/pacientes"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'administrativo', 'unidad_apoyo']}>
+              <RoleRoute
+                roles={['administrador', 'administrativo', 'unidad_apoyo', 'jefatura']}
+              >
                 <Pacientes />
               </RoleRoute>
             </ProtectedRoute>
@@ -84,7 +86,9 @@ function App() {
           path="/disponibilidad"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'doctor', 'enfermeria']}>
+              <RoleRoute
+                roles={['administrador', 'doctor', 'enfermeria', 'jefatura']}
+              >
                 <Disponibilidad />
               </RoleRoute>
             </ProtectedRoute>
@@ -104,7 +108,7 @@ function App() {
           path="/rem"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['enfermeria']}>
+              <RoleRoute roles={['jefatura', 'administrador']}>
                 <Rem />
               </RoleRoute>
             </ProtectedRoute>
@@ -144,7 +148,9 @@ function App() {
           path="/citas"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['administrador', 'administrativo', 'paciente']}>
+              <RoleRoute
+                roles={['administrador', 'administrativo', 'paciente', 'jefatura']}
+              >
                 <Citas />
               </RoleRoute>
             </ProtectedRoute>
@@ -154,7 +160,16 @@ function App() {
           path="/interconsultas"
           element={
             <ProtectedRoute>
-              <RoleRoute roles={['enfermeria', 'doctor', 'administrativo', 'administrador', 'paciente']}>
+              <RoleRoute
+                roles={[
+                  'enfermeria',
+                  'doctor',
+                  'administrativo',
+                  'administrador',
+                  'jefatura',
+                  'paciente',
+                ]}
+              >
                 <Interconsultas />
               </RoleRoute>
             </ProtectedRoute>

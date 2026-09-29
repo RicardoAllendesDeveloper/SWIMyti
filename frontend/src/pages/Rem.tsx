@@ -3,46 +3,25 @@ import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
 import '../styles/Rem.css'
 
-type AtencionRem = {
-  id_ficha: number
-  diagnostico: string
-  created_at: string
-}
+/**
+ * Los agregados llegan calculados desde la RPC fn_rem_resumen(). La pagina no
+ * consulta fichas_medicas ni bonos_atencion: antes lo hacia con .limit(500) y
+ * se bajaba la columna `diagnostico` al navegador para contar en JavaScript,
+ * lo que ademas de truncar los totales exponia dato clinico sensible.
+ */
+type Item = { clave: string; valor: number }
 
-type CitaRem = {
-  id_cita: number
-  created_at: string
-  horarios_disponibles?: {
-    especialidades?: { nombre?: string } | { nombre?: string }[] | null
-  } | null
-}
-
-type BonoRem = {
-  id_bono: number
-  tipo_atencion?: string
-  monto: number
-  fecha_emision: string
-}
-
-function asSingle<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null
-  return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
-function topN(
-  items: { clave: string; peso?: number }[],
-  n = 5,
-): { clave: string; valor: number }[] {
-  const mapa = new Map<string, number>()
-  for (const it of items) {
-    const clave = (it.clave || 'Sin información').trim()
-    const peso = it.peso ?? 1
-    mapa.set(clave, (mapa.get(clave) ?? 0) + peso)
-  }
-  return [...mapa.entries()]
-    .map(([clave, valor]) => ({ clave, valor }))
-    .sort((a, b) => b.valor - a.valor)
-    .slice(0, n)
+type RemResumen = {
+  periodo: string
+  atenciones_totales: number
+  atenciones_mes: number
+  citas_registradas: number
+  bonos_totales: number
+  top_especialidades: Item[]
+  distribucion_atencion: Item[]
+  ingresos_por_tipo: Item[]
+  top_diagnosticos: Item[]
+  puede_ver_diagnosticos: boolean
 }
 
 const PALETA = [
@@ -123,29 +102,30 @@ function Torta({ datos }: { datos: { clave: string; valor: number }[] }) {
 }
 
 function Rem() {
-  const [atenciones, setAtenciones] = useState<AtencionRem[]>([])
-  const [citas, setCitas] = useState<CitaRem[]>([])
-  const [bonos, setBonos] = useState<BonoRem[]>([])
+  const [datos, setDatos] = useState<RemResumen | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   function exportarExcel() {
+    if (!datos) return
     const filas: (string | number)[][] = [
       ['Indicador', 'Valor'],
-      ['Atenciones totales', atenciones.length],
-      ['Atenciones este mes', atencionesEsteMes.length],
-      ['Citas registradas', citas.length],
-      ['Atenciones cobradas (bonos)', bonos.length],
+      ['Atenciones totales', datos.atenciones_totales],
+      ['Atenciones este mes', datos.atenciones_mes],
+      ['Citas registradas', datos.citas_registradas],
+      ['Atenciones cobradas (bonos)', datos.bonos_totales],
     ]
     filas.push([])
     filas.push(['Especialidad', 'Cantidad'])
-    for (const e of topEspecialidades) filas.push([e.clave, e.valor])
+    for (const e of datos.top_especialidades) filas.push([e.clave, e.valor])
     filas.push([])
     filas.push(['Tipo de atención', 'Cantidad'])
-    for (const t of distribucionAtenciones) filas.push([t.clave, t.valor])
-    filas.push([])
-    filas.push(['Diagnóstico', 'Cantidad'])
-    for (const d of topDiagnosticos) filas.push([d.clave, d.valor])
+    for (const t of datos.distribucion_atencion) filas.push([t.clave, t.valor])
+    if (datos.puede_ver_diagnosticos) {
+      filas.push([])
+      filas.push(['Diagnóstico', 'Cantidad'])
+      for (const d of datos.top_diagnosticos) filas.push([d.clave, d.valor])
+    }
 
     const esc = (v: string | number) => {
       const s = String(v)
@@ -158,7 +138,7 @@ function Rem() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `REM_SWIMyti_${mesActual.replace(/\s+/g, '_')}.csv`
+    a.download = `REM_SWIMyti_${datos.periodo.replace(/\s+/g, '_')}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -167,32 +147,13 @@ function Rem() {
     setLoading(true)
     setError(null)
 
-    const [atRes, ciRes, boRes] = await Promise.all([
-      supabase
-        .from('fichas_medicas')
-        .select('id_ficha, diagnostico, created_at')
-        .order('created_at', { ascending: false })
-        .limit(500),
-      supabase
-        .from('citas')
-        .select(
-          'id_cita, created_at, horarios_disponibles ( especialidades ( nombre ) )',
-        )
-        .limit(500),
-      supabase
-        .from('bonos_atencion')
-        .select('id_bono, tipo_atencion, monto, fecha_emision')
-        .limit(500),
-    ])
+    const { data, error: rpcError } = await supabase.rpc('fn_rem_resumen')
 
-    if (atRes.error) setError(atRes.error.message)
-    else setAtenciones((atRes.data ?? []) as AtencionRem[])
-
-    if (ciRes.error) setError((c) => c ?? ciRes.error.message)
-    else setCitas((ciRes.data ?? []) as CitaRem[])
-
-    if (boRes.error) setError((c) => c ?? boRes.error.message)
-    else setBonos((boRes.data ?? []) as BonoRem[])
+    if (rpcError) {
+      setError(rpcError.message)
+    } else {
+      setDatos(data as unknown as RemResumen)
+    }
 
     setLoading(false)
   }, [])
@@ -200,40 +161,6 @@ function Rem() {
   useEffect(() => {
     void loadData()
   }, [loadData])
-
-  const mesActual = new Date().toLocaleString('es-CL', {
-    month: 'long',
-    year: 'numeric',
-  })
-
-  const atencionesEsteMes = atenciones.filter((a) => {
-    const d = new Date(a.created_at)
-    const ahora = new Date()
-    return (
-      d.getMonth() === ahora.getMonth() && d.getFullYear() === ahora.getFullYear()
-    )
-  })
-
-  const especialidades = citas.flatMap((c) => {
-    const h = c.horarios_disponibles
-    const e = h ? asSingle(h.especialidades) : null
-    return [{ clave: e?.nombre ?? 'Sin información' }]
-  })
-  const topEspecialidades = topN(especialidades, 5)
-
-  const tiposAtencion = bonos.map((b) => ({
-    clave: b.tipo_atencion === 'procedimiento' ? 'Procedimientos' : 'Consultas',
-    peso: b.monto ?? 1,
-  }))
-  const distribucionAtenciones = topN(
-    tiposAtencion.map((t) => ({ clave: t.clave })),
-    2,
-  )
-
-  const ingresosPorTipo = topN(tiposAtencion, 2)
-
-  const diagnosticoTextos = atenciones.map((a) => ({ clave: a.diagnostico }))
-  const topDiagnosticos = topN(diagnosticoTextos, 5)
 
   return (
     <div className="dash">
@@ -243,13 +170,13 @@ function Rem() {
         <header className="dash-topbar">
           <div>
             <h2>REM — Resumen Estadístico Mensual</h2>
-            <p>Indicadores de atención del centro · {mesActual}</p>
+            <p>Indicadores de atención del centro · {datos?.periodo ?? ''}</p>
           </div>
           <button
             type="button"
             className="dash-btn-primary"
             onClick={exportarExcel}
-            disabled={loading}
+            disabled={loading || !datos}
           >
             Exportar a Excel
           </button>
@@ -264,23 +191,23 @@ function Rem() {
 
           {loading ? (
             <p className="dash-loading">Calculando indicadores…</p>
-          ) : (
+          ) : datos ? (
             <>
               <div className="rem-kpis">
                 <div className="rem-kpi">
-                  <div className="rem-kpi-valor">{atenciones.length}</div>
+                  <div className="rem-kpi-valor">{datos.atenciones_totales}</div>
                   <div className="rem-kpi-label">Atenciones totales</div>
                 </div>
                 <div className="rem-kpi">
-                  <div className="rem-kpi-valor">{atencionesEsteMes.length}</div>
+                  <div className="rem-kpi-valor">{datos.atenciones_mes}</div>
                   <div className="rem-kpi-label">Atenciones este mes</div>
                 </div>
                 <div className="rem-kpi">
-                  <div className="rem-kpi-valor">{citas.length}</div>
+                  <div className="rem-kpi-valor">{datos.citas_registradas}</div>
                   <div className="rem-kpi-label">Citas registradas</div>
                 </div>
                 <div className="rem-kpi">
-                  <div className="rem-kpi-valor">{bonos.length}</div>
+                  <div className="rem-kpi-valor">{datos.bonos_totales}</div>
                   <div className="rem-kpi-label">Atenciones cobradas (bonos)</div>
                 </div>
               </div>
@@ -288,42 +215,46 @@ function Rem() {
               <div className="rem-grid">
                 <div className="rem-card">
                   <h3>Especialidades más solicitadas</h3>
-                  {topEspecialidades.length === 0 ? (
+                  {datos.top_especialidades.length === 0 ? (
                     <p className="rem-vacio">Sin datos de citas aún.</p>
                   ) : (
-                    <Barras datos={topEspecialidades} />
+                    <Barras datos={datos.top_especialidades} />
                   )}
                 </div>
 
                 <div className="rem-card">
                   <h3>Distribución consultas vs procedimientos</h3>
-                  {distribucionAtenciones.length === 0 ? (
+                  {datos.distribucion_atencion.length === 0 ? (
                     <p className="rem-vacio">Sin bonos registrados aún.</p>
                   ) : (
-                    <Torta datos={distribucionAtenciones} />
+                    <Torta datos={datos.distribucion_atencion} />
                   )}
                 </div>
 
                 <div className="rem-card">
                   <h3>Ingresos por tipo de atención (bonos)</h3>
-                  {ingresosPorTipo.length === 0 ? (
+                  {datos.ingresos_por_tipo.length === 0 ? (
                     <p className="rem-vacio">Sin bonos registrados aún.</p>
                   ) : (
-                    <Barras datos={ingresosPorTipo} />
+                    <Barras datos={datos.ingresos_por_tipo} />
                   )}
                 </div>
 
                 <div className="rem-card">
                   <h3>Diagnósticos más comunes</h3>
-                  {topDiagnosticos.length === 0 ? (
+                  {!datos.puede_ver_diagnosticos ? (
+                    <p className="rem-vacio">
+                      El detalle de diagnósticos se reserva para administración.
+                    </p>
+                  ) : datos.top_diagnosticos.length === 0 ? (
                     <p className="rem-vacio">Sin atenciones registradas aún.</p>
                   ) : (
-                    <Barras datos={topDiagnosticos} />
+                    <Barras datos={datos.top_diagnosticos} />
                   )}
                 </div>
               </div>
             </>
-          )}
+          ) : null}
         </section>
       </div>
     </div>

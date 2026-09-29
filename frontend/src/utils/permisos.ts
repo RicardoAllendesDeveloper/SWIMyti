@@ -112,23 +112,29 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
     'finanzas',
     'usuarios',
     'config_recinto',
+    'rem',
   ],
-  doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos', 'rem'],
-  enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos', 'rem'],
+  doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos'],
+  enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos'],
   administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
   /**
    * Jefatura sin rol clínico asociado: coordina agenda y datos de pacientes.
    * Una jefatura de enfermería o medicina además hereda los módulos de su
    * rol clínico, porque la navegación usa la unión de todos sus roles.
+   * `rem` es el Resumen Estadístico Mensual: informe de jefatura, no un
+   * documento de enfermería como estaba antes mal clasificado.
    */
-  jefatura: ['pacientes', 'disponibilidad', 'citas', 'interconsultas'],
+  jefatura: ['pacientes', 'disponibilidad', 'citas', 'interconsultas', 'rem'],
   unidad_apoyo: ['pacientes', 'bandeja_ordenes'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
 
 export function tieneModulo(rol: RolUsuario, modulo: Modulo): boolean {
   if (!rol) return false
-  return MODULOS_POR_ROL[rol].includes(modulo)
+  // Optional chaining a proposito: si la BD devuelve un rol que no esta en el
+  // mapa (rol nuevo, typo, cache viejo), la navegacion se oculta en vez de
+  // romper la pagina completa.
+  return MODULOS_POR_ROL[rol]?.includes(modulo) ?? false
 }
 
 /** ¿Alguno de los roles acumulados habilita el módulo? */
