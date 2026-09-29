@@ -1,0 +1,8 @@
+#!/bin/sh
+# SWIMyti — hook de pre-commit
+# Instalar una sola vez con:  git config core.hooksPath .githooks
+#
+# Bloquea el commit si el contenido staged tiene credenciales. Es la red que
+# .gitignore no puede poner: los archivos que sí se versionan también pueden
+# llevar una contraseña adentro.
+exec node "$(git rev-parse --show-toplevel)/scripts/guardar-secretos.mjs"

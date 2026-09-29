@@ -13,3 +13,43 @@ AGENTS.md
 .DS_Store
 Thumbs.db
 *.log
+
+# -----------------------------------------------------------------------------
+# Material sensible — ver docs/PROTOCOLO_SEGURIDAD.md
+#
+# Cualquier archivo que contenga claves, tokens o datos de pacientes tiene que
+# caer acá. La idea es que el error sea barato: si creaste algo con credenciales
+# y no lo agregaste a un commit, estás a salvo.
+# -----------------------------------------------------------------------------
+
+# Respaldos de git (pueden contener historia vieja con secretos)
+*.bundle
+
+# Archivos de credenciales, por nombre
+*.secret
+*.secrets
+*credencial*
+*CREDIAL*
+*CREDENTIALS*
+*_credenciales*
+
+# Carpetas de material interno no publicable
+privado/
+sensibles/
+docs/sensibles/
+docs/privado/
+
+# Copias locales de documentos de trabajo
+docs/*.local.*
+docs/*_local.*
+docs/*-local.*
+
+# Volcados y exportaciones de base de datos
+*.dump
+*.sql.gz
+*.sql.bz2
+supabase/.branches/
+supabase/.temp/
+
+# Lista local de contraseñas que el guard debe reconocer (scripts/guardar-secretos.mjs)
+scripts/.secretos-local.json

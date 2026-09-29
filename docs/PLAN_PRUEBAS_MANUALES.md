@@ -58,15 +58,19 @@ cuenta `jefatura.demo`, que acumula enfermería + jefatura.
 
 ### Credenciales
 
+Las contraseñas **no viven en este archivo**. Están en `AGENTS.md`, que está en
+`.gitignore` justamente por eso. Este documento solo necesita saber a qué
+cuenta corresponde cada caso.
+
 | Rolón | Email | Contraseña |
 |---|---|---|
-| Administrador | `admin@swimyti.cl` | `Re37MhJYGHA##NL3XkAEFMbiy` |
-| Jefatura (enfermera + jefatura) | `jefatura.demo@swimyti.cl` | `[ver AGENTS.md]` |
-| Enfermería (sin jefatura) | `enfermeria.demo@swimyti.cl` | `[ver AGENTS.md]` |
-| Administrativo | `admin.demo@swimyti.cl` | `[ver AGENTS.md]` |
-| Doctor | `doctor.demo@swimyti.cl` | `[ver AGENTS.md]` |
-| Unidad de apoyo | `apoyo.demo@swimyti.cl` | `[ver AGENTS.md]` |
-| Paciente | `paciente.demo@swimyti.cl` | `[ver AGENTS.md]` |
+| Administrador | `admin@swimyti.cl` | en `AGENTS.md` |
+| Jefatura (enfermera + jefatura) | `jefatura.demo@swimyti.cl` | en `AGENTS.md` |
+| Enfermería (sin jefatura) | `enfermeria.demo@swimyti.cl` | en `AGENTS.md` |
+| Administrativo | `admin.demo@swimyti.cl` | en `AGENTS.md` |
+| Doctor | `doctor.demo@swimyti.cl` | en `AGENTS.md` |
+| Unidad de apoyo | `apoyo.demo@swimyti.cl` | en `AGENTS.md` |
+| Paciente | `paciente.demo@swimyti.cl` | en `AGENTS.md` |
 
 > Importante: `jefatura.demo` tiene **dos** roles (enfermería principal +
 > jefatura secundaria). `enfermeria.demo` tiene **solo** enfermería. Los dos
