@@ -9,6 +9,10 @@
 -- Requisito previo: roles sembrados por 20260812000000_initial_schema.sql
 -- y extensión pgcrypto (ya creada por la migración inicial).
 -- =============================================================================
+-- ATENCIÓN: estas son cuentas de demostración y las contraseñas son conocidas.
+-- Nunca ejecutar este seed contra una instancia de producción con datos reales.
+-- Las contraseñas se rotaron el 2026-09-28; ver AGENTS.md (fuera de git).
+-- =============================================================================
 
 do $$
 declare
