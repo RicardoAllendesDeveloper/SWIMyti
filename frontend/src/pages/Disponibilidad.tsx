@@ -55,6 +55,11 @@ function Disponibilidad() {
 
   const esProfesionalAgenda = rol === 'doctor' || rol === 'enfermeria'
 
+  // La carga horaria es una decisión de gestión: la coordina la jefatura del
+  // área o el administrador de sistema, no el profesional. Por ahora solo
+  // el administrador; 'jefatura' se suma junto con su ámbito por especialidad.
+  const puedeCoordinarAgenda = rol === 'administrador'
+
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [horarios, setHorarios] = useState<HorarioDisponible[]>([])
   const [agenda, setAgenda] = useState<AtencionAgenda[]>([])
@@ -645,15 +650,17 @@ function Disponibilidad() {
             )}
           </div>
 
-<div className="dash-card">
-              <div className="dash-card-header">
-                <div>
-                  <h3>Publicar jornada</h3>
-                  <p className="dash-muted">
-                    Define tu jornada de atención y se divide en bloques de 15 minutos
-                  </p>
-                </div>
-              </div>
+              {puedeCoordinarAgenda ? (
+                <div className="dash-card">
+                  <div className="dash-card-header">
+                    <div>
+                      <h3>Publicar jornada</h3>
+                      <p className="dash-muted">
+                        Define la jornada de atención de un profesional y se divide en
+                        bloques de 15 minutos
+                      </p>
+                    </div>
+                  </div>
 
               <form className="dash-form" onSubmit={(e) => void crearBloque(e)}>
                 {especialidades.length > 1 ? (
@@ -769,6 +776,20 @@ function Disponibilidad() {
                 </div>
               </form>
             </div>
+              ) : (
+                <div className="dash-card">
+                  <div className="dash-card-header">
+                    <div>
+                      <h3>Mi carga horaria</h3>
+                      <p className="dash-muted">
+                        Tu jornada es publicada y administrada por la jefatura del área o
+                        el administrador de sistema. Si necesitas cambios, solicítalos
+                        por interconsulta.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
           <div className="dash-card">
             <div className="dash-card-header">
@@ -876,7 +897,7 @@ function Disponibilidad() {
                               </span>
                             ))}
                           </div>
-                          {disponibles > 0 ? (
+                          {disponibles > 0 && puedeCoordinarAgenda ? (
                             <button
                               type="button"
                               className="dash-btn-secondary jornada-cancelar"
