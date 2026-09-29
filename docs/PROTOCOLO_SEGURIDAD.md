@@ -119,6 +119,33 @@ símbolo, que es lo que pide el password strength de Supabase).
 Las cuentas con clave *generada* solo se muestran esa vez. Si pierdes el
 resultado, genera de nuevo: no hay forma de recuperarla.
 
+**Trampa al correrlo por MCP.** El SQL Editor muestra todos los result sets, pero
+`supabase_execute_sql` devuelve **solo el último**. Con el script tal cual (que
+crea una tabla temporal, rota dentro de un `do $$`, y después consulta esa
+tabla), el `select` con las claves se traga y quedan las 6 cuentas con claves
+nuevas que nadie conoce. Para correrlo por MCP, usa una sola sentencia con CTE
+y `update ... returning`, que sí retorna las claves como último result set:
+
+```sql
+with generada as (
+  select u.id, u.email,
+         'Sw' || substr(md5(random()::text || clock_timestamp()::text),1,12) || '!7' as clave
+    from auth.users u
+   where u.email like '%demo@swimyti.cl'
+), rotado as (
+  update auth.users a
+     set encrypted_password = crypt(g.clave, gen_salt('bf')), updated_at = now()
+    from generada g where a.id = g.id
+  returning g.email, g.clave
+)
+select email, clave from rotado order by email;
+```
+
+**La cuenta de administrador real no la cubre este script**, porque no la crea
+el seed. Si su clave estuvo alguna vez en el historial, hay que rotarla por
+separado (mismo CTE, filtrando por `admin@swimyti.cl`) y verificarla con
+`node scripts/probar-login.mjs <correo> <clave>`.
+
 ## Crear las cuentas demo por primera vez
 
 `supabase/seed_usuarios_demo.sql`, mismo mecanismo: clave por variable de
