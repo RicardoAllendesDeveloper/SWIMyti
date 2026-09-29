@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigError } from '../services/supabase'
+import { agregarRoles, rolPrincipal, type FilaRol } from '../utils/permisos'
 
 export type RolUsuario =
   | 'administrador'
@@ -88,9 +89,9 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       .eq('id_usuario', user.id)
       .is('vigente_hasta', null)
 
-    type FilaRol = {
-      es_principal?: boolean
-      roles?: { nombre_rol: string } | { nombre_rol: string }[] | null
+    // Fila de usuario_roles + el usuario y su especialidad principal. Cada
+    // fila es un rol; la agregación vive en utils/permisos para poder testearla.
+    type FilaPerfil = FilaRol & {
       usuarios?:
         | {
             nombres?: string
@@ -109,26 +110,23 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
         | null
     }
 
-    function aplicarDatos(fila: FilaRol) {
-      // PostgREST devuelve la relación many-to-one como objeto, pero el tipo
-      // generado la modela como arreglo. Se normaliza en un solo lugar.
-      const u = Array.isArray(fila.usuarios) ? fila.usuarios[0] : fila.usuarios
-      setNombres((u?.nombres as string) ?? null)
-      setApellidos((u?.apellidos as string) ?? null)
+    function aplicarDatos(filas: FilaPerfil[]) {
+      // Los datos del usuario vienen repetidos en cada fila; se toma el
+      // primero que los traiga, porque alguna fila puede venir sin relación.
+      const conPerfil = filas.find((f) => f.usuarios)
+      const u = conPerfil?.usuarios
+      const usuario = Array.isArray(u) ? u[0] : u
+      setNombres((usuario?.nombres as string) ?? null)
+      setApellidos((usuario?.apellidos as string) ?? null)
 
-      const rel = fila.roles as
-        | { nombre_rol: string }
-        | { nombre_rol: string }[]
-        | null
-      const arr = Array.isArray(rel) ? rel : rel ? [rel] : []
-      const nombresRol = arr
-        .map((r) => r.nombre_rol as RolConocido)
-        .filter((r): r is RolConocido => r != null)
+      // Un usuario tiene N filas (una por rol). Se acumulan todas: tomar solo
+      // la primera ocultaba módulos del sidebar.
+      const nombresRol = agregarRoles(filas)
       setRoles(nombresRol)
-      setRol(nombresRol[0] ?? null)
+      setRol(rolPrincipal(filas))
 
       // Especialidad principal del profesional
-      const espRows = u?.doctores_especialidades ?? []
+      const espRows = usuario?.doctores_especialidades ?? []
       let espNombre: string | null = null
       if (espRows.length > 0) {
         const primera = espRows[0] as {
@@ -142,10 +140,10 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       setEspecialidad(espNombre)
     }
 
-    const filas = Array.isArray(data) ? (data as unknown as FilaRol[]) : []
-    const perfil = filas[0]
+    const filas = Array.isArray(data) ? (data as unknown as FilaPerfil[]) : []
+    const perfil = filas.find((f) => f.usuarios)
 
-    if (error || !perfil || !perfil.usuarios) {
+    if (error || !perfil) {
       // Auto-crear perfil si el usuario se registró con confirmación de email
       // y su perfil aún no existe en public.usuarios (caso típico: primer login
       // o retorno desde el correo de confirmación).
@@ -159,6 +157,10 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
           p_apellidos: (meta.apellidos as string) || 'Registrado',
           p_telefono: (meta.telefono as string) || null,
           p_email: user.email ?? '',
+          p_direccion: (meta.direccion as string) || null,
+          p_fecha_nacimiento: (meta.fecha_nacimiento as string) || null,
+          p_sexo: (meta.sexo as string) || null,
+          p_prevision: (meta.prevision as string) || null,
         })
         // Re-intentar obtener los roles tras crear el perfil
         const { data: retry } = await supabase
@@ -169,7 +171,7 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
           .eq('id_usuario', user.id)
           .is('vigente_hasta', null)
         if (retry && retry.length > 0) {
-          aplicarDatos(retry[0])
+          aplicarDatos(retry as unknown as FilaPerfil[])
           return
         }
       } catch {
@@ -180,7 +182,7 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    aplicarDatos(perfil)
+    aplicarDatos(filas)
   }, [])
 
   useEffect(() => {

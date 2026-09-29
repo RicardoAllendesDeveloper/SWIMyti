@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  agregarRoles,
   esStaff,
   homeRol,
   MODULOS_POR_ROL,
   NOMBRE_ROL,
+  rolPrincipal,
   tieneAlguno,
   tieneModulo,
   tieneModuloConRoles,
+  type FilaRol,
   type Modulo,
 } from '../utils/permisos'
 import type { RolConocido } from '../context/AuthRolContext'
@@ -130,5 +133,66 @@ describe('robustez ante roles desconocidos', () => {
     expect(() => tieneModulo(rolFantasia, 'fichas')).not.toThrow()
     expect(tieneModulo(rolFantasia, 'fichas')).toBe(false)
     expect(tieneModuloConRoles([rolFantasia, 'doctor'], 'fichas')).toBe(true)
+  })
+})
+
+// Regresión del bug que motivó extraer agregarRoles: el provider procesaba
+// `filas[0]` y devolvía un solo rol, así que un profesional con enfermería +
+// jefatura perdía medio menú del sidebar. El orden de PostgREST no está
+// garantizado, por eso se prueban las dos variantes.
+describe('agregarRoles (N-roles desde usuario_roles)', () => {
+  const fila = (nombre: string, es_principal = false): FilaRol => ({
+    es_principal,
+    roles: { nombre_rol: nombre },
+  })
+
+  it('acumula los roles aunque venga el secundario primero', () => {
+    const filas = [fila('jefatura'), fila('enfermeria', true)]
+    expect(agregarRoles(filas)).toEqual(['enfermeria', 'jefatura'])
+  })
+
+  it('acumula los roles con el principal primero', () => {
+    const filas = [fila('enfermeria', true), fila('jefatura')]
+    expect(agregarRoles(filas)).toEqual(['enfermeria', 'jefatura'])
+  })
+
+  it('no duplica si la misma fila trae la relación como arreglo', () => {
+    const filas: FilaRol[] = [
+      { es_principal: true, roles: [{ nombre_rol: 'doctor' }] },
+      { es_principal: false, roles: [{ nombre_rol: 'jefatura' }] },
+    ]
+    expect(agregarRoles(filas)).toEqual(['doctor', 'jefatura'])
+  })
+
+  it('descarta filas sin rol o con rol desconocido', () => {
+    const filas: FilaRol[] = [
+      fila('doctor', true),
+      { es_principal: false, roles: null },
+      { es_principal: false, roles: { nombre_rol: 'rol_borrado' } },
+    ]
+    expect(agregarRoles(filas)).toEqual(['doctor', 'rol_borrado'])
+  })
+
+  it('un usuario sin roles no rompe la pagina', () => {
+    expect(agregarRoles([])).toEqual([])
+    expect(rolPrincipal([])).toBeNull()
+  })
+
+  it('el rol principal manda sobre el orden de las filas', () => {
+    expect(rolPrincipal([fila('jefatura'), fila('enfermeria', true)])).toBe(
+      'enfermeria',
+    )
+  })
+
+  it('sin es_principal marcado cae al primero, sin romperse', () => {
+    expect(rolPrincipal([fila('enfermeria'), fila('jefatura')])).toBe('enfermeria')
+  })
+
+  // El sidebar es la fuente de navegación: si un rol se pierde aquí, el
+  // usuario ve menos de lo que el sistema le permite.
+  it('un enfermero ascendido conserva los modulos de ambos roles', () => {
+    const roles = agregarRoles([fila('jefatura'), fila('enfermeria', true)])
+    expect(tieneModuloConRoles(roles, 'fichas')).toBe(true)
+    expect(tieneModuloConRoles(roles, 'rem')).toBe(true)
   })
 })

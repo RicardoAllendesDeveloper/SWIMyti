@@ -148,6 +148,55 @@ export function tieneAlguno(roles: RolConocido[], objetivo: RolConocido[]): bool
 }
 
 /**
+ * Fila de `usuario_roles` tal como la devuelve PostgREST. Cada fila es UN rol,
+ * con `es_principal` marcando cuál manda. La relación `roles` viene como
+ * objeto pero el tipo generado la modela como arreglo, así que se normaliza.
+ */
+export type FilaRol = {
+  es_principal?: boolean | null
+  roles?:
+    | { nombre_rol?: string | null }
+    | { nombre_rol?: string | null }[]
+    | null
+}
+
+function nombreRolDe(fila: FilaRol): RolConocido | null {
+  const rel = fila.roles
+  const arr = Array.isArray(rel) ? rel : rel ? [rel] : []
+  const nombre = arr[0]?.nombre_rol
+  return (nombre as RolConocido | null) ?? null
+}
+
+/**
+ * Agrega los roles de TODAS las filas de `usuario_roles`, con el principal
+ * primero y sin duplicados.
+ *
+ * Esto vive aparte del provider porque es lógica pura y se puede testear. El
+ * bug que motivó extraerlo: el provider tomaba `filas[0]` y procesaba una sola
+ * fila, así que un profesional con enfermería + jefatura recibía un único rol
+ * — y cuál de los dos dependía del orden de PostgREST, que no está garantizado.
+ * El sidebar ocultaba medio menú y el usuario caía en "sin permisos".
+ */
+export function agregarRoles(filas: FilaRol[]): RolConocido[] {
+  const principal: RolConocido[] = []
+  const resto: RolConocido[] = []
+
+  for (const fila of filas) {
+    const nombre = nombreRolDe(fila)
+    if (!nombre) continue
+    if (fila.es_principal) principal.push(nombre)
+    else resto.push(nombre)
+  }
+
+  return [...new Set([...principal, ...resto])]
+}
+
+/** El rol que define el home y el rótulo: el marcado `es_principal`. */
+export function rolPrincipal(filas: FilaRol[]): RolConocido | null {
+  return agregarRoles(filas)[0] ?? null
+}
+
+/**
  * Ruta inicial (home) natural por rol, usada tras el login y como fallback
  * cuando un rol no tiene permitido un módulo. Los roles no clínicos ya no
  * aterrizan en /dashboard (fichas clínicas), sino en su módulo principal.
