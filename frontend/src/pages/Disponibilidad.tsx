@@ -5,6 +5,7 @@ import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
 import type { Especialidad, HorarioDisponible } from '../types/database'
 import { claveDia, claveHoy, formatHoraMin } from '../utils/fechas'
+import { traerEnTrozos } from '../utils/paginacion'
 import '../styles/Disponibilidad.css'
 
 function formatFechaHora(value: string): string {
@@ -149,11 +150,11 @@ function Disponibilidad() {
       }
     }
 
-    // Los horarios visibles: si es admin ve todos; si es doctor, los propios
-    let horQuery = supabase
-      .from('horarios_disponibles')
-      .select(
-        `
+    // Los horarios visibles: si es admin ve todos; si es doctor, los propios.
+    // Van por trozos porque el recinto tiene mas de 1000 bloques y PostgREST
+    // corta en silencio a los 1000: el profesional mas cargado tiene 893 y
+    // veria solo los 100 mas futuros.
+    const CAMPOS_HORARIOS = `
         id_horario,
         id_profesional,
         id_especialidad,
@@ -162,20 +163,28 @@ function Disponibilidad() {
         estado,
         usuarios:id_profesional ( nombres, apellidos ),
         especialidades ( nombre )
-      `,
-      )
-      .order('fecha_inicio', { ascending: false })
-      .limit(100)
+      `
 
-    if (user && esProfesionalAgenda) {
-      horQuery = horQuery.eq('id_profesional', user.id)
-    }
+    const { filas: bloques, error: errorHorarios } = await traerEnTrozos(
+      (desde, hasta) => {
+        let q = supabase
+          .from('horarios_disponibles')
+          .select(CAMPOS_HORARIOS)
+          .order('fecha_inicio', { ascending: true })
+          .range(desde, hasta)
 
-    const horRes = await horQuery
-    if (horRes.error) {
-      setError(horRes.error.message || 'No se pudieron cargar los horarios.')
+        if (user && esProfesionalAgenda) {
+          q = q.eq('id_profesional', user.id)
+        }
+        return q
+      },
+      1000,
+    )
+
+    if (errorHorarios) {
+      setError(errorHorarios)
     } else {
-      setHorarios((horRes.data ?? []) as unknown as HorarioDisponible[])
+      setHorarios(bloques as unknown as HorarioDisponible[])
     }
 
     // Agenda de atenciones: todas las citas del doctor (o todas para admin)

@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar'
 import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import { puedeGestionarCitas } from '../utils/permisos'
 import { claveDia, claveHoy } from '../utils/fechas'
+import { traerEnTrozos } from '../utils/paginacion'
 import type { Especialidad, HorarioDisponible } from '../types/database'
 import '../styles/Citas.css'
 
@@ -59,31 +60,6 @@ function Citas() {
   }, [])
 
   const cargarHorarios = useCallback(async () => {
-    let query = supabase
-      .from('horarios_disponibles')
-      .select(
-        `
-        id_horario,
-        id_profesional,
-        id_especialidad,
-        fecha_inicio,
-        fecha_fin,
-        estado,
-        usuarios:id_profesional ( nombres, apellidos, roles ( nombre_rol ) ),
-        especialidades ( nombre )
-      `,
-      )
-      .eq('estado', 'disponible')
-      .gte('fecha_inicio', new Date().toISOString())
-      .order('fecha_inicio', { ascending: true })
-
-    if (especialidadFiltro) {
-      query = query.eq('id_especialidad', Number(especialidadFiltro))
-    }
-    if (profesionalFiltro) {
-      query = query.eq('id_profesional', profesionalFiltro)
-    }
-
     // Cargar profesionales de la especialidad seleccionada (para el filtro)
     if (especialidadFiltro) {
       const profQuery = supabase
@@ -118,13 +94,44 @@ function Citas() {
       setProfesionales([])
     }
 
-    const { data, error } = await query
+    // Hay mas de 1000 bloques disponibles futuros en el recinto y PostgREST
+    // corta a los 1000 sin avisar, dejando el final del horizonte sin
+    // reservar. Se piden por tramos.
+    const { filas, error } = await traerEnTrozos((desde, hasta) => {
+      let q = supabase
+        .from('horarios_disponibles')
+        .select(
+          `
+        id_horario,
+        id_profesional,
+        id_especialidad,
+        fecha_inicio,
+        fecha_fin,
+        estado,
+        usuarios:id_profesional ( nombres, apellidos, roles ( nombre_rol ) ),
+        especialidades ( nombre )
+      `,
+        )
+        .eq('estado', 'disponible')
+        .gte('fecha_inicio', new Date().toISOString())
+        .order('fecha_inicio', { ascending: true })
+        .range(desde, hasta)
+
+      if (especialidadFiltro) {
+        q = q.eq('id_especialidad', Number(especialidadFiltro))
+      }
+      if (profesionalFiltro) {
+        q = q.eq('id_profesional', profesionalFiltro)
+      }
+      return q
+    })
+
     if (error) {
-      setError(error.message || 'No se pudieron cargar los horarios.')
+      setError(error || 'No se pudieron cargar los horarios.')
       setHorarios([])
       return
     }
-    setHorarios((data ?? []) as unknown as HorarioDisponible[])
+    setHorarios(filas as unknown as HorarioDisponible[])
   }, [especialidadFiltro, profesionalFiltro])
 
   const cargarMisCitas = useCallback(async () => {

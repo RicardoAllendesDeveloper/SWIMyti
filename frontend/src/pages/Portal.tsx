@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar'
 import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import type { AnexoClinico, Cita, Interconsulta, OrdenExamen } from '../types/database'
 import { claveDia, claveHoy } from '../utils/fechas'
+import { traerEnTrozos } from '../utils/paginacion'
 import '../styles/Portal.css'
 
 function formatFechaHora(value: string): string {
@@ -112,7 +113,7 @@ function Portal() {
 
     setPacienteNombre(`${pac.nombres} ${pac.apellidos}`)
 
-    const [citasRes, recRes, certRes, anexRes, icRes, ordRes, horRes] = await Promise.all([
+    const [citasRes, recRes, certRes, anexRes, icRes, ordRes] = await Promise.all([
       supabase
         .from('citas')
         .select(
@@ -165,14 +166,22 @@ function Portal() {
         )
         .eq('id_paciente', pac.id_paciente)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('horarios_disponibles')
-        .select('id_horario, fecha_inicio, especialidades(nombre)')
-        .eq('estado', 'disponible')
-        .gte('fecha_inicio', new Date().toISOString())
-        .order('fecha_inicio', { ascending: true })
-        .limit(1000),
     ])
+
+    // Los horarios del recinto superan las 1000 filas y PostgREST corta a las
+    // 1000 sin avisar. Con el limite puesto en 1000 el paciente perdia de
+    // vista el final del horizonte y no podia reservar ahi. Va por tramos.
+    const { filas: horarios, error: errorHorarios } = await traerEnTrozos(
+      (desde, hasta) =>
+        supabase
+          .from('horarios_disponibles')
+          .select('id_horario, fecha_inicio, especialidades(nombre)')
+          .eq('estado', 'disponible')
+          .gte('fecha_inicio', new Date().toISOString())
+          .order('fecha_inicio', { ascending: true })
+          .range(desde, hasta),
+    )
+    if (errorHorarios) setError(errorHorarios)
 
     if (citasRes.error) setError(citasRes.error.message)
     else setCitas((citasRes.data ?? []) as unknown as Cita[])
@@ -183,8 +192,8 @@ function Portal() {
     if (!icRes.error) setInterconsultas((icRes.data ?? []) as Interconsulta[])
     if (!ordRes.error) setOrdenes((ordRes.data ?? []) as OrdenExamen[])
 
-    if (!horRes.error) {
-      const rows = (horRes.data ?? []) as {
+    if (!errorHorarios) {
+      const rows = horarios as {
         id_horario: number
         fecha_inicio: string
         especialidades?: { nombre?: string } | { nombre?: string }[] | null
