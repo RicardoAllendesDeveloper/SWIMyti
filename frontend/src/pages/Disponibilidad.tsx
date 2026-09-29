@@ -49,16 +49,26 @@ type AtencionAgenda = {
 
 type TabAtenciones = 'actuales' | 'anteriores' | 'proximas'
 
+/** Profesional que la jefatura o el administrador pueden cargar horariamente. */
+type ProfesionalAgenda = {
+  id_profesional: string
+  nombre: string
+  especialidad: string
+}
+
 function Disponibilidad() {
   const navigate = useNavigate()
-  const { rol } = useAuthRol()
+  const { rol, roles } = useAuthRol()
 
-  const esProfesionalAgenda = rol === 'doctor' || rol === 'enfermeria'
+  // Un profesional con agenda es quien tiene rol clínico. La jefatura puede
+  // tener rol clínico acumulado: entonces ve lo mismo que su subalterno.
+  const esProfesionalAgenda = roles.some((r) => r === 'doctor' || r === 'enfermeria')
 
   // La carga horaria es una decisión de gestión: la coordina la jefatura del
-  // área o el administrador de sistema, no el profesional. Por ahora solo
-  // el administrador; 'jefatura' se suma junto con su ámbito por especialidad.
-  const puedeCoordinarAgenda = rol === 'administrador'
+  // área o el administrador de sistema, no el profesional. La jefatura solo
+  // publica para los profesionales de su ámbito (lo valida el RPC).
+  const puedeCoordinarAgenda =
+    rol === 'administrador' || roles.includes('jefatura')
 
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [horarios, setHorarios] = useState<HorarioDisponible[]>([])
@@ -69,6 +79,8 @@ function Disponibilidad() {
   const [success, setSuccess] = useState<string | null>(null)
 
   const [especialidad, setEspecialidad] = useState('')
+  const [profesional, setProfesional] = useState('')
+  const [profesionales, setProfesionales] = useState<ProfesionalAgenda[]>([])
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
   const [horaInicio, setHoraInicio] = useState('')
@@ -121,6 +133,20 @@ function Disponibilidad() {
       }
     } else {
       setEspecialidades((espRes.data ?? []) as Especialidad[])
+    }
+
+    // Profesionales cuya carga horaria puede publicar este usuario. El RPC ya
+    // viene acotado al ámbito, así que no se filtrar de nuevo en el cliente.
+    if (user && puedeCoordinarAgenda) {
+      const profRes = await supabase.rpc('fn_profesionales_agenda_coordinable')
+      if (profRes.error) {
+        setError(profRes.error.message)
+        setProfesionales([])
+      } else {
+        const filas = (profRes.data ?? []) as ProfesionalAgenda[]
+        setProfesionales(filas)
+        if (filas.length === 1) setProfesional(filas[0].id_profesional)
+      }
     }
 
     // Los horarios visibles: si es admin ve todos; si es doctor, los propios
@@ -234,6 +260,18 @@ function Disponibilidad() {
 
     setSaving(true)
 
+    if (!puedeCoordinarAgenda) {
+      setSaving(false)
+      setError('No tienes permiso para publicar jornadas.')
+      return
+    }
+
+    if (!profesional) {
+      setSaving(false)
+      setError('Selecciona el profesional cuya carga horario vas a definir.')
+      return
+    }
+
     const idEspFinal = especialidad
       ? Number(especialidad)
       : especialidades.length === 1
@@ -247,6 +285,7 @@ function Disponibilidad() {
     }
 
     const { data, error } = await supabase.rpc('fn_generar_bloques_jornada', {
+      p_id_profesional: profesional,
       p_id_especialidad: idEspFinal,
       p_fecha_inicio: fechaInicio,
       p_fecha_fin: fechaFin,
@@ -270,8 +309,7 @@ function Disponibilidad() {
     setHoraInicio('')
     setHoraFin('')
     setEspecialidad('')
-    await loadData()
-  }
+    await loadData()  }
 
   async function eliminarJornada(g: { fecha: string; idEspecialidad: number; idProfesional: string }) {
     setError(null)
@@ -663,6 +701,35 @@ function Disponibilidad() {
                   </div>
 
               <form className="dash-form" onSubmit={(e) => void crearBloque(e)}>
+                {profesionales.length > 1 ? (
+                  <div className="dash-field">
+                    <label htmlFor="disp-profesional">Profesional</label>
+                    <select
+                      id="disp-profesional"
+                      value={profesional}
+                      onChange={(e) => setProfesional(e.target.value)}
+                      required
+                      disabled={saving}
+                    >
+                      <option value="">Selecciona un profesional</option>
+                      {profesionales.map((p) => (
+                        <option key={`${p.id_profesional}-${p.especialidad}`} value={p.id_profesional}>
+                          {p.nombre} — {p.especialidad}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : profesionales.length === 1 ? (
+                  <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
+                    Profesional: <strong>{profesionales[0].nombre}</strong>
+                    {profesionales[0].especialidad ? ` (${profesionales[0].especialidad})` : null}
+                  </p>
+                ) : (
+                  <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
+                    No tienes profesionales a cargo para publicar una jornada.
+                  </p>
+                )}
+
                 {especialidades.length > 1 ? (
                   <div className="dash-field">
                     <label htmlFor="disp-especialidad">Especialidad</label>

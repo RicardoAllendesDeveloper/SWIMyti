@@ -14,6 +14,13 @@ type Especialidad = {
   nombre: string
 }
 
+/** Rol asignado a un usuario, con su marca de principal. */
+type RolUsuarioAdmin = {
+  id_rol: number
+  nombre_rol: string
+  es_principal: boolean
+}
+
 type UsuarioAdmin = {
   id_usuario: string
   email: string
@@ -22,7 +29,10 @@ type UsuarioAdmin = {
   rut: string | null
   activo: boolean
   created_at: string
-  roles?: { nombre_rol: string } | { nombre_rol: string }[] | null
+  /** Todos los roles acumulados (tabla usuario_roles), no solo el principal. */
+  roles: RolUsuarioAdmin[]
+  /** Especialidades que coordina, solo si tiene el rol jefatura. */
+  ambito: string[]
 }
 
 function formatDate(value: string): string {
@@ -59,6 +69,8 @@ function Usuarios() {
   const [editNombres, setEditNombres] = useState('')
   const [editApellidos, setEditApellidos] = useState('')
   const [editIdRol, setEditIdRol] = useState('')
+  const [editRolAdicional, setEditRolAdicional] = useState('')
+  const [editAmbito, setEditAmbito] = useState<number[]>([])
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([])
   const [editEspecialidades, setEditEspecialidades] = useState<number[]>([])
   const [editEspecialidadPrincipal, setEditEspecialidadPrincipal] = useState<number | null>(null)
@@ -80,18 +92,20 @@ function Usuarios() {
   }, [])
 
   const loadUsuarios = useCallback(async () => {
+    // Los roles vienen de usuario_roles: un usuario puede tener varios y el
+    // listado es el que le permite al administrador verlos todos juntos.
     const { data, error } = await supabase
       .from('usuarios')
       .select(
-        'id_usuario, email, nombres, apellidos, rut, activo, created_at, roles!inner(nombre_rol)',
+        `
+        id_usuario, email, nombres, apellidos, rut, activo, created_at,
+        usuario_roles!inner (
+          es_principal,
+          vigente_hasta,
+          roles ( id_rol, nombre_rol )
+        )
+      `,
       )
-      .in('roles.nombre_rol', [
-        'administrador',
-        'doctor',
-        'enfermeria',
-        'administrativo',
-        'unidad_apoyo',
-      ])
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -100,15 +114,78 @@ function Usuarios() {
       return
     }
 
-    const rows = (data ?? []).map((row) => {
-      const related = row.roles
-      const rol = Array.isArray(related) ? related[0] ?? null : related
-      return {
-        ...row,
-        roles: rol ? { nombre_rol: (rol as { nombre_rol: string }).nombre_rol } : null,
-      } as UsuarioAdmin
-    })
-    setUsuarios(rows)
+    const filas = (data ?? []) as unknown as (UsuarioAdmin & {
+      usuario_roles?: {
+        es_principal: boolean
+        vigente_hasta: string | null
+        roles: { id_rol: number; nombre_rol: string } | { id_rol: number; nombre_rol: string }[] | null
+      }[]
+    })[]
+
+    const visibles = filas
+      .map((row) => {
+        const rolesUsuario: RolUsuarioAdmin[] = (row.usuario_roles ?? [])
+          .filter((r) => r.vigente_hasta === null)
+          .map((r) => {
+            const rel = Array.isArray(r.roles) ? r.roles[0] : r.roles
+            return rel
+              ? {
+                  id_rol: rel.id_rol,
+                  nombre_rol: rel.nombre_rol,
+                  es_principal: r.es_principal,
+                }
+              : null
+          })
+          .filter((r): r is RolUsuarioAdmin => r !== null)
+
+        return {
+          id_usuario: row.id_usuario,
+          email: row.email,
+          nombres: row.nombres,
+          apellidos: row.apellidos,
+          rut: row.rut,
+          activo: row.activo,
+          created_at: row.created_at,
+          roles: rolesUsuario.sort((a, b) => Number(b.es_principal) - Number(a.es_principal)),
+          ambito: [],
+        }
+      })
+      // El rol 'paciente' se asigna por el portal, no por administración.
+      .filter((u) => u.roles.some((r) => r.nombre_rol !== 'paciente'))
+
+    // Ámbito de jefatura: un query aparte para no anidar la relación sobre
+    // una tabla que no tiene FK directa hacia usuarios.
+    const conJefatura = visibles.filter((u) => u.roles.some((r) => r.nombre_rol === 'jefatura'))
+    if (conJefatura.length > 0) {
+      const { data: jefaturas } = await supabase
+        .from('jefaturas_especialidades')
+        .select('id_jefatura, especialidades(nombre)')
+        .in(
+          'id_jefatura',
+          conJefatura.map((u) => u.id_usuario),
+        )
+
+      const porUsuario = new Map<string, string[]>()
+      for (const je of (jefaturas ?? []) as {
+        id_jefatura: string
+        especialidades: { nombre: string } | { nombre: string }[] | null
+      }[]) {
+        const esp = Array.isArray(je.especialidades)
+          ? je.especialidades[0]
+          : je.especialidades
+        if (!esp?.nombre) continue
+        const lista: string[] = porUsuario.get(je.id_jefatura) ?? []
+        lista.push(esp.nombre)
+        porUsuario.set(je.id_jefatura, lista)
+      }
+
+      setUsuarios(
+        visibles.map((u) => ({ ...u, ambito: porUsuario.get(u.id_usuario) ?? [] })),
+      )
+      return
+    }
+
+    setUsuarios(visibles)
   }, [])
 
   const loadEspecialidades = useCallback(async () => {
@@ -237,29 +314,29 @@ function Usuarios() {
     setSuccess(`Usuario ${next ? 'activado' : 'desactivado'} correctamente.`)
   }
 
-  function rolDe(usuario: UsuarioAdmin): string {
-    const r = usuario.roles
-    if (!r) return 'Sin rol'
-    const nombre = Array.isArray(r) ? r[0]?.nombre_rol : r.nombre_rol
-    return NOMBRE_ROL[nombre as keyof typeof NOMBRE_ROL] ?? nombre ?? 'Sin rol'
-  }
-
   async function openEdit(usuario: UsuarioAdmin) {
     setError(null)
     setSuccess(null)
     setEditUsuario(usuario)
     setEditNombres(usuario.nombres)
     setEditApellidos(usuario.apellidos)
-    const rolActual = usuario.roles
-    const rolNombre = Array.isArray(rolActual)
-      ? rolActual[0]?.nombre_rol
-      : rolActual?.nombre_rol
-    const rol = roles.find((r) => r.nombre_rol === rolNombre)
-    setEditIdRol(rol ? String(rol.id_rol) : '')
+    const principal = usuario.roles.find((r) => r.es_principal) ?? usuario.roles[0]
+    setEditIdRol(principal ? String(principal.id_rol) : '')
+    setEditRolAdicional('')
+    setEditAmbito([])
     setEditEspecialidades([])
     setEditEspecialidadPrincipal(null)
 
-    if (rolNombre === 'doctor') {
+    // La jefatura coordina un ámbito, así que se cargan sus especialidades.
+    if (usuario.roles.some((r) => r.nombre_rol === 'jefatura')) {
+      const { data } = await supabase
+        .from('jefaturas_especialidades')
+        .select('id_especialidad')
+        .eq('id_jefatura', usuario.id_usuario)
+      setEditAmbito(((data ?? []) as { id_especialidad: number }[]).map((d) => d.id_especialidad))
+    }
+
+    if (usuario.roles.some((r) => r.nombre_rol === 'doctor')) {
       const { data, error } = await supabase
         .from('doctores_especialidades')
         .select('id_especialidad, es_principal')
@@ -290,12 +367,22 @@ function Usuarios() {
 
     if (!editUsuario) return
     if (!editNombres.trim() || !editApellidos.trim() || !editIdRol) {
-      setError('Completa nombres, apellidos y rol.')
+      setError('Completa nombres, apellidos y rol principal.')
       return
     }
 
-    const rolSel = roles.find((r) => String(r.id_rol) === editIdRol)
-    if (rolSel?.nombre_rol === 'doctor') {
+    const rolPrincipal = roles.find((r) => String(r.id_rol) === editIdRol)
+    const rolAdicional = roles.find((r) => String(r.id_rol) === editRolAdicional)
+
+    // Un doctor necesita especialidad para atender; la validación se hace
+    // sobre el conjunto final de roles, no solo sobre el principal.
+    const RolesFinales = new Set([
+      ...editUsuario.roles.map((r) => r.nombre_rol),
+      rolPrincipal?.nombre_rol,
+      rolAdicional?.nombre_rol,
+    ].filter((r): r is string => Boolean(r)))
+
+    if (RolesFinales.has('doctor')) {
       if (editEspecialidades.length === 0) {
         setError('Asigna al menos una especialidad al doctor.')
         return
@@ -304,6 +391,11 @@ function Usuarios() {
         setError('Selecciona la especialidad principal del doctor.')
         return
       }
+    }
+
+    if (RolesFinales.has('jefatura') && editAmbito.length === 0) {
+      setError('La jefatura necesita al menos una especialidad que coordine.')
+      return
     }
 
     setSaving(true)
@@ -323,8 +415,54 @@ function Usuarios() {
       return
     }
 
-    // Sincronizar especialidades si el usuario es doctor
-    if (rolSel?.nombre_rol === 'doctor') {
+    // Agregar rol. Nunca se quita uno: los roles se acumulan (decision de
+    // producto, ver usuario_roles). Para dejar de tener un rol se desactiva
+    // la cuenta.
+    if (rolAdicional && !editUsuario.roles.some((r) => r.id_rol === rolAdicional.id_rol)) {
+      const { error: rolError } = await supabase.from('usuario_roles').insert({
+        id_usuario: editUsuario.id_usuario,
+        id_rol: rolAdicional.id_rol,
+        es_principal: false,
+      })
+
+      if (rolError) {
+        setSaving(false)
+        setError(rolError.message || 'No se pudo agregar el rol.')
+        return
+      }
+    }
+
+    // Ámbito de la jefatura: se sincroniza completo (borra y reinserta).
+    if (RolesFinales.has('jefatura')) {
+      const { error: delAmbito } = await supabase
+        .from('jefaturas_especialidades')
+        .delete()
+        .eq('id_jefatura', editUsuario.id_usuario)
+
+      if (delAmbito) {
+        setSaving(false)
+        setError(delAmbito.message || 'No se pudo guardar el ámbito de la jefatura.')
+        return
+      }
+
+      if (editAmbito.length > 0) {
+        const { error: insAmbito } = await supabase.from('jefaturas_especialidades').insert(
+          editAmbito.map((idEsp) => ({
+            id_jefatura: editUsuario.id_usuario,
+            id_especialidad: idEsp,
+          })),
+        )
+
+        if (insAmbito) {
+          setSaving(false)
+          setError(insAmbito.message || 'No se pudo guardar el ámbito de la jefatura.')
+          return
+        }
+      }
+    }
+
+    // Sincronizar especialidades si el usuario tiene rol doctor
+    if (RolesFinales.has('doctor')) {
       const { error: delError } = await supabase
         .from('doctores_especialidades')
         .delete()
@@ -419,7 +557,7 @@ function Usuarios() {
                       <th>Email</th>
                       <th>Nombre</th>
                       <th>RUT</th>
-                      <th>Rol</th>
+                      <th>Roles</th>
                       <th>Creado</th>
                       <th>Estado</th>
                       <th>Acción</th>
@@ -434,7 +572,18 @@ function Usuarios() {
                         </td>
                         <td>{usuario.rut ?? '—'}</td>
                         <td>
-                          <span className="dash-badge">{rolDe(usuario)}</span>
+                          <div className="usu-roles-actuales">
+                            {usuario.roles.map((r) => (
+                              <span key={r.id_rol} className="dash-badge">
+                                {NOMBRE_ROL[r.nombre_rol as keyof typeof NOMBRE_ROL] ?? r.nombre_rol}
+                              </span>
+                            ))}
+                          </div>
+                          {usuario.ambito.length > 0 ? (
+                            <div className="usuario-ambito">
+                              Coordina: {usuario.ambito.join(', ')}
+                            </div>
+                          ) : null}
                         </td>
                         <td>{formatDate(usuario.created_at)}</td>
                         <td>
@@ -726,7 +875,23 @@ function Usuarios() {
               </div>
 
               <div className="dash-field">
-                <label htmlFor="editar-usuario-rol">Rol</label>
+                <label>Roles actuales</label>
+                <div className="usu-roles-actuales">
+                  {editUsuario.roles.map((r) => (
+                    <span key={r.id_rol} className="dash-badge">
+                      {NOMBRE_ROL[r.nombre_rol as keyof typeof NOMBRE_ROL] ?? r.nombre_rol}
+                      {r.es_principal ? ' (principal)' : ''}
+                    </span>
+                  ))}
+                </div>
+                <p className="dash-field-hint">
+                  Los roles se acumulan y no se quitan. Si una persona deja de
+                  ejercer un cargo, desactiva la cuenta.
+                </p>
+              </div>
+
+              <div className="dash-field">
+                <label htmlFor="editar-usuario-rol">Rol principal</label>
                 <select
                   id="editar-usuario-rol"
                   value={editIdRol}
@@ -741,9 +906,84 @@ function Usuarios() {
                     </option>
                   ))}
                 </select>
+                <p className="dash-field-hint">
+                  Define dónde aterriza la persona al entrar y qué se muestra en
+                  su perfil. No cambia el resto de sus permisos.
+                </p>
               </div>
 
-              {roles.find((r) => String(r.id_rol) === editIdRol)?.nombre_rol === 'doctor' ? (
+              <div className="dash-field">
+                <label htmlFor="editar-usuario-rol-adicional">Agregar rol</label>
+                <select
+                  id="editar-usuario-rol-adicional"
+                  value={editRolAdicional}
+                  onChange={(e) => setEditRolAdicional(e.target.value)}
+                  disabled={saving || roles.length === 0}
+                >
+                  <option value="">Agregar una función adicional…</option>
+                  {roles
+                    .filter((r) => !editUsuario?.roles.some((x) => x.id_rol === r.id_rol))
+                    .map((r) => (
+                      <option key={r.id_rol} value={String(r.id_rol)}>
+                        {NOMBRE_ROL[r.nombre_rol as keyof typeof NOMBRE_ROL] ?? r.nombre_rol}
+                      </option>
+                    ))}
+                </select>
+                <p className="dash-field-hint">
+                  Suma una función a la que ya tiene. Ejemplo: Promoción a
+                  jefatura sin perder el rol clínico.
+                </p>
+              </div>
+
+              {(() => {
+                const tieneJefatura =
+                  editUsuario.roles.some((r) => r.nombre_rol === 'jefatura') ||
+                  roles.find((r) => String(r.id_rol) === editIdRol)?.nombre_rol === 'jefatura' ||
+                  roles.find((r) => String(r.id_rol) === editRolAdicional)?.nombre_rol === 'jefatura'
+                if (!tieneJefatura) return null
+                return (
+                  <div className="dash-field">
+                    <label>Ámbito que coordina la jefatura</label>
+                    <div className="usu-especialidades">
+                      {especialidades.map((esp) => {
+                        const marcada = editAmbito.includes(esp.id_especialidad)
+                        return (
+                          <label key={esp.id_especialidad} className="usu-especialidad">
+                            <span className="usu-especialidad-nombre">{esp.nombre}</span>
+                            <span className="usu-especialidad-controls">
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                onChange={(e) => {
+                                  const checked = e.target.checked
+                                  setEditAmbito((prev) =>
+                                    checked
+                                      ? [...prev, esp.id_especialidad]
+                                      : prev.filter((id) => id !== esp.id_especialidad),
+                                  )
+                                }}
+                                disabled={saving}
+                              />
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <p className="dash-field-hint">
+                      Solo podrá publicar carga horaria y gestionar citas de
+                      estas especialidades.
+                    </p>
+                  </div>
+                )
+              })()}
+
+              {(() => {
+                const tieneDoctor =
+                  editUsuario.roles.some((r) => r.nombre_rol === 'doctor') ||
+                  roles.find((r) => String(r.id_rol) === editIdRol)?.nombre_rol === 'doctor' ||
+                  roles.find((r) => String(r.id_rol) === editRolAdicional)?.nombre_rol === 'doctor'
+                if (!tieneDoctor) return null
+                return (
                 <div className="dash-field">
                   <label>Especialidades del doctor</label>
                   <div className="usu-especialidades">
@@ -795,7 +1035,8 @@ function Usuarios() {
                     Marca las especialidades del doctor y selecciona la principal.
                   </p>
                 </div>
-              ) : null}
+                )
+              })()}
 
               <div className="dash-form-actions">
                 <button

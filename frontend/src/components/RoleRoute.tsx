@@ -8,8 +8,8 @@ type RoleRouteProps = {
   children: ReactNode
 }
 
-function RoleRoute({ roles, children }: RoleRouteProps) {
-  const { rol, loading, session, refreshRol } = useAuthRol()
+function RoleRoute({ roles: permitidos, children }: RoleRouteProps) {
+  const { rol, roles, loading, session, refreshRol } = useAuthRol()
   const [esperandoRol, setEsperandoRol] = useState(true)
 
   // Si hay sesión pero el rol aún no se resolvió, reintentar una vez
@@ -43,7 +43,8 @@ function RoleRoute({ roles, children }: RoleRouteProps) {
     return <Navigate to="/login" replace />
   }
 
-  if (!roles.includes(rol)) {
+  // Acceso si CUALQUIERA de los roles acumulados del usuario está permitido.
+  if (!roles.some((r) => permitidos.includes(r))) {
     return <Navigate to={homeRol(rol)} replace />
   }
 

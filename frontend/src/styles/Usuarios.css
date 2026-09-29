@@ -113,3 +113,16 @@
 .usu-pw-toggle:hover {
   opacity: 1;
 }
+/* Roles multiples por usuario (modelo N-roles) */
+.usu-roles-actuales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.usuario-ambito {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #5b6b7a;
+  line-height: 1.3;
+}

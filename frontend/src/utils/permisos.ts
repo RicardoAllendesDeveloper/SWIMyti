@@ -1,4 +1,4 @@
-import type { RolUsuario } from '../context/AuthRolContext'
+import type { RolConocido, RolUsuario } from '../context/AuthRolContext'
 
 const ROLES_CLINICOS = ['doctor', 'enfermeria'] as const
 const ROLES_STAFF = [
@@ -7,6 +7,7 @@ const ROLES_STAFF = [
   'enfermeria',
   'administrativo',
   'unidad_apoyo',
+  'jefatura',
 ] as const
 
 export function esPersonalClinico(rol: RolUsuario): boolean {
@@ -76,6 +77,7 @@ export const NOMBRE_ROL: Record<NonNullable<RolUsuario>, string> = {
   enfermeria: 'Enfermería',
   administrativo: 'Administrativo(a)',
   unidad_apoyo: 'Unidad de Apoyo',
+  jefatura: 'Jefatura',
   paciente: 'Paciente',
 }
 
@@ -114,6 +116,12 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
   doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos', 'rem'],
   enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos', 'rem'],
   administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
+  /**
+   * Jefatura sin rol clínico asociado: coordina agenda y datos de pacientes.
+   * Una jefatura de enfermería o medicina además hereda los módulos de su
+   * rol clínico, porque la navegación usa la unión de todos sus roles.
+   */
+  jefatura: ['pacientes', 'disponibilidad', 'citas', 'interconsultas'],
   unidad_apoyo: ['pacientes', 'bandeja_ordenes'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
@@ -121,6 +129,16 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
 export function tieneModulo(rol: RolUsuario, modulo: Modulo): boolean {
   if (!rol) return false
   return MODULOS_POR_ROL[rol].includes(modulo)
+}
+
+/** ¿Alguno de los roles acumulados habilita el módulo? */
+export function tieneModuloConRoles(roles: RolConocido[], modulo: Modulo): boolean {
+  return roles.some((r) => tieneModulo(r, modulo))
+}
+
+/** ¿El usuario acumula alguno de estos roles? */
+export function tieneAlguno(roles: RolConocido[], objetivo: RolConocido[]): boolean {
+  return roles.some((r) => objetivo.includes(r))
 }
 
 /**
@@ -138,6 +156,9 @@ export function homeRol(rol: RolUsuario): string {
       return '/bandeja-ordenes'
     case 'administrador':
       return '/usuarios'
+    case 'jefatura':
+      // Su módulo propio es la agenda que coordina.
+      return '/disponibilidad'
     default:
       // doctor, enfermeria -> fichas clínicas
       return '/dashboard'

@@ -15,12 +15,22 @@ export type RolUsuario =
   | 'enfermeria'
   | 'administrativo'
   | 'unidad_apoyo'
+  | 'jefatura'
   | 'paciente'
   | null
 
+/** Roles sin el valor nulo, para comprobaciones de pertenencia. */
+export type RolConocido = Exclude<RolUsuario, null>
+
 type AuthRolContextValue = {
   session: Session | null
+  /** Rol principal del usuario. Es el que se muestra y el que decide el home. */
   rol: RolUsuario
+  /**
+   * Todos los roles acumulados del usuario. Un profesional ascendido a jefatura
+   * conserva su rol clínico y suma el de coordinación, sin cambiar de cuenta.
+   */
+  roles: RolConocido[]
   email: string | null
   nombres: string | null
   apellidos: string | null
@@ -32,6 +42,7 @@ type AuthRolContextValue = {
 const AuthRolContext = createContext<AuthRolContextValue>({
   session: null,
   rol: null,
+  roles: [],
   email: null,
   nombres: null,
   apellidos: null,
@@ -43,6 +54,7 @@ const AuthRolContext = createContext<AuthRolContextValue>({
 export function AuthRolProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [rol, setRol] = useState<RolUsuario>(null)
+  const [roles, setRoles] = useState<RolConocido[]>([])
   const [email, setEmail] = useState<string | null>(null)
   const [nombres, setNombres] = useState<string | null>(null)
   const [apellidos, setApellidos] = useState<string | null>(null)
@@ -56,6 +68,7 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
 
     if (!user) {
       setRol(null)
+      setRoles([])
       setEmail(null)
       setNombres(null)
       setApellidos(null)
@@ -65,33 +78,57 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
 
     setEmail(user.email ?? user.id)
 
+    // Los roles vienen de usuario_roles (N roles). El principal se marca con
+    // es_principal para mantener la navegación y el rótulo igual que antes.
     const { data, error } = await supabase
-      .from('usuarios')
+      .from('usuario_roles')
       .select(
-        'id_rol, nombres, apellidos, roles(nombre_rol), doctores_especialidades(especialidades(nombre))',
+        'es_principal, vigente_hasta, roles(nombre_rol), usuarios(nombres, apellidos, doctores_especialidades(especialidades(nombre)))',
       )
       .eq('id_usuario', user.id)
-      .maybeSingle()
+      .is('vigente_hasta', null)
 
-    const aplicarDatos = (perfil: {
-      nombres?: string
-      apellidos?: string
+    type FilaRol = {
+      es_principal?: boolean
       roles?: { nombre_rol: string } | { nombre_rol: string }[] | null
-      doctores_especialidades?: {
-        especialidades?: { nombre?: string } | { nombre?: string }[] | null
-      }[] | null
-    }) => {
-      setNombres((perfil.nombres as string) ?? null)
-      setApellidos((perfil.apellidos as string) ?? null)
-      const rel = perfil.roles as
+      usuarios?:
+        | {
+            nombres?: string
+            apellidos?: string
+            doctores_especialidades?: {
+              especialidades?: { nombre?: string } | { nombre?: string }[] | null
+            }[] | null
+          }
+        | {
+            nombres?: string
+            apellidos?: string
+            doctores_especialidades?: {
+              especialidades?: { nombre?: string } | { nombre?: string }[] | null
+            }[] | null
+          }[]
+        | null
+    }
+
+    function aplicarDatos(fila: FilaRol) {
+      // PostgREST devuelve la relación many-to-one como objeto, pero el tipo
+      // generado la modela como arreglo. Se normaliza en un solo lugar.
+      const u = Array.isArray(fila.usuarios) ? fila.usuarios[0] : fila.usuarios
+      setNombres((u?.nombres as string) ?? null)
+      setApellidos((u?.apellidos as string) ?? null)
+
+      const rel = fila.roles as
         | { nombre_rol: string }
         | { nombre_rol: string }[]
         | null
-      const rolNombre = Array.isArray(rel) ? rel[0]?.nombre_rol : rel?.nombre_rol
-      setRol((rolNombre as RolUsuario) ?? null)
+      const arr = Array.isArray(rel) ? rel : rel ? [rel] : []
+      const nombresRol = arr
+        .map((r) => r.nombre_rol as RolConocido)
+        .filter((r): r is RolConocido => r != null)
+      setRoles(nombresRol)
+      setRol(nombresRol[0] ?? null)
 
-      // Especialidad principal del profesional (primera con es_principal o la primera)
-      const espRows = perfil.doctores_especialidades ?? []
+      // Especialidad principal del profesional
+      const espRows = u?.doctores_especialidades ?? []
       let espNombre: string | null = null
       if (espRows.length > 0) {
         const primera = espRows[0] as {
@@ -105,7 +142,10 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       setEspecialidad(espNombre)
     }
 
-    if (error || !data) {
+    const filas = Array.isArray(data) ? (data as unknown as FilaRol[]) : []
+    const perfil = filas[0]
+
+    if (error || !perfil || !perfil.usuarios) {
       // Auto-crear perfil si el usuario se registró con confirmación de email
       // y su perfil aún no existe en public.usuarios (caso típico: primer login
       // o retorno desde el correo de confirmación).
@@ -120,26 +160,27 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
           p_telefono: (meta.telefono as string) || null,
           p_email: user.email ?? '',
         })
-        // Re-intentar obtener el rol tras crear el perfil
+        // Re-intentar obtener los roles tras crear el perfil
         const { data: retry } = await supabase
-          .from('usuarios')
+          .from('usuario_roles')
           .select(
-            'id_rol, nombres, apellidos, roles(nombre_rol), doctores_especialidades(especialidades(nombre))',
+            'es_principal, vigente_hasta, roles(nombre_rol), usuarios(nombres, apellidos, doctores_especialidades(especialidades(nombre)))',
           )
           .eq('id_usuario', user.id)
-          .maybeSingle()
-        if (retry) {
-          aplicarDatos(retry)
+          .is('vigente_hasta', null)
+        if (retry && retry.length > 0) {
+          aplicarDatos(retry[0])
           return
         }
       } catch {
         // Si el auto-registro falla, continuar sin perfil
       }
       setRol(null)
+      setRoles([])
       return
     }
 
-    aplicarDatos(data)
+    aplicarDatos(perfil)
   }, [])
 
   useEffect(() => {
@@ -202,6 +243,7 @@ export function AuthRolProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         rol,
+        roles,
         email,
         nombres,
         apellidos,

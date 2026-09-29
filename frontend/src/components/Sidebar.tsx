@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthRol } from '../context/AuthRolContext'
 import { supabase } from '../services/supabase'
-import { NOMBRE_ROL, tieneModulo, homeRol, type Modulo } from '../utils/permisos'
+import { NOMBRE_ROL, tieneModuloConRoles, homeRol, type Modulo } from '../utils/permisos'
 
 type SidebarProps = {
   moduloActivo?: Modulo
@@ -13,7 +13,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
   { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas', roles: ['*'] },
   { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard', roles: ['*'] },
   { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes', roles: ['*'] },
-  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad', roles: ['administrador', 'doctor', 'enfermeria'] },
+  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad', roles: ['administrador', 'doctor', 'enfermeria', 'jefatura'] },
   { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas', roles: ['*'] },
   { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos', roles: ['administrador', 'administrativo'] },
   { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas', roles: ['administrador', 'administrativo'] },
@@ -28,7 +28,7 @@ const ITEMS: { modulo: Modulo; label: string; ruta: string; roles: string[] }[] 
 function Sidebar({ moduloActivo }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { rol, email, nombres, apellidos, especialidad } = useAuthRol()
+  const { rol, roles, email, nombres, apellidos, especialidad } = useAuthRol()
   const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleLogout() {
@@ -38,11 +38,9 @@ function Sidebar({ moduloActivo }: SidebarProps) {
     navigate('/login', { replace: true })
   }
 
-  const visibles = ITEMS.filter(
-    (item) =>
-      tieneModulo(rol, item.modulo) &&
-      (item.roles.includes('*') || (rol && item.roles.includes(rol))),
-  )
+  // Un módulo es visible si el conjunto de roles del usuario lo habilita.
+  // Así una jefatura que además es enfermería ve lo de ambas funciones.
+  const visibles = ITEMS.filter((item) => tieneModuloConRoles(roles, item.modulo))
 
   return (
     <aside className="dash-sidebar" aria-label="Navegación principal">
@@ -86,6 +84,14 @@ function Sidebar({ moduloActivo }: SidebarProps) {
           </div>
           {email ? <div className="dash-user-email">{email}</div> : null}
           {rol ? <div className="dash-user-rol">{NOMBRE_ROL[rol]}</div> : null}
+          {roles.length > 1 ? (
+            <div className="dash-user-roles">
+              {roles
+                .filter((r) => r !== rol)
+                .map((r) => NOMBRE_ROL[r])
+                .join(' · ')}
+            </div>
+          ) : null}
           {especialidad ? (
             <div className="dash-user-esp">{especialidad}</div>
           ) : null}
