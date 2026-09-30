@@ -218,12 +218,10 @@ function Disponibilidad() {
           motivo,
           estado,
           llegada,
-          horarios_disponibles (
-            id_profesional,
-            fecha_inicio,
-            especialidades ( nombre )
-          ),
-          pacientes ( nombres, apellidos, rut )
+horarios_disponibles(id_profesional,
+               fecha_inicio,
+               especialidades(nombre)),
+             pacientes(nombres, apellidos, rut)
         `,
         )
         .order('created_at', { ascending: true })

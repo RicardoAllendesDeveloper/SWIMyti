@@ -99,11 +99,9 @@ function Usuarios() {
       .select(
         `
         id_usuario, email, nombres, apellidos, rut, activo, created_at,
-        usuario_roles!inner (
-          es_principal,
-          vigente_hasta,
-          roles ( id_rol, nombre_rol )
-        )
+usuario_roles!inner(es_principal,
+            vigente_hasta,
+            roles(id_rol, nombre_rol))
       `,
       )
       .order('created_at', { ascending: false })

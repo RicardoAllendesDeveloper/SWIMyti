@@ -211,7 +211,7 @@ function Expediente() {
           plan_tratamiento,
           observaciones,
           created_at,
-          usuarios:id_usuario_creador ( nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey ( nombre_rol ) )
+          usuarios:id_usuario_creador(nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey(nombre_rol))
         `,
         )
         .eq('id_paciente', idPac)
@@ -226,7 +226,7 @@ function Expediente() {
           valor_anterior,
           correccion_justificada,
           created_at,
-          usuarios:id_usuario_autor ( nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey ( nombre_rol ) )
+          usuarios:id_usuario_autor(nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey(nombre_rol))
         `,
         )
         .order('created_at', { ascending: false }),

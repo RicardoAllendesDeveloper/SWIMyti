@@ -141,7 +141,7 @@ function DetalleFicha() {
           correccion_justificada,
           firma_digital_hash,
           created_at,
-          usuarios:id_usuario_autor ( nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey ( nombre_rol ) )
+          usuarios:id_usuario_autor(nombres, apellidos, email, roles:roles!usuarios_id_rol_fkey(nombre_rol))
         `,
         )
         .eq('id_ficha', idFicha)

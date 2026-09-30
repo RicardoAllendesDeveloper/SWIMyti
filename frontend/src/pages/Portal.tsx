@@ -127,12 +127,10 @@ function Portal() {
           motivo,
           estado,
           llegada,
-          horarios_disponibles (
-            fecha_inicio,
-            fecha_fin,
-            especialidades ( nombre ),
-            usuarios:id_profesional ( nombres, apellidos )
-          )
+horarios_disponibles(fecha_inicio,
+               fecha_fin,
+               especialidades(nombre),
+               usuarios:id_profesional(nombres, apellidos))
         `,
         )
         .eq('id_paciente', pac.id_paciente)
