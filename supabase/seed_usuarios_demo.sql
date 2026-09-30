@@ -37,8 +37,18 @@ declare
   v_apellidos text;
   v_pwd      text;
   v_rol_jef  bigint;
+  v_esp_enf  bigint;
   r record;
 begin
+  -- Especialidad clinica de la jefatura, resuelta por nombre para que el
+  -- seed no dependa del id. Se falla explicito si el catalogo no la tiene:
+  -- mejor un seed que se detiene que una jefatura con una especialidad rara.
+  select id_especialidad into v_esp_enf
+  from public.especialidades where nombre = 'Enfermería' and activo limit 1;
+
+  if v_esp_enf is null then
+    raise exception 'SWIMyti: el catalogo necesita la especialidad Enfermería. Corre 20260812000000_initial_schema.sql';
+  end if;
   -- ---------------------------------------------------------------
   -- Las 6 cuentas demo. La clave se resuelve una vez por iteracion:
   -- la que venga en set_config, o una generada si el tester no fijo
@@ -94,6 +104,30 @@ begin
       returning id into v_id;
     end if;
 
+    -- auth.identities: SIN esto la cuenta existe pero no puede iniciar sesion.
+    -- GoTrue exige una identity con provider 'email' para el login con clave;
+    -- un auth.users sin identity es un perfil que entra a la lista de usuarios
+    -- pero falla al autenticarse. Se creaba el usuario y se olvidaba la
+    -- identity, y solo se notaba al intentar loguearse.
+    if not exists (
+      select 1 from auth.identities where user_id = v_id
+    ) then
+      insert into auth.identities (
+        user_id, provider, identity_data, provider_id,
+        last_sign_in_at, created_at, updated_at
+      )
+      values (
+        v_id, 'email',
+        jsonb_build_object(
+          'sub', v_id::text,
+          'email', v_email,
+          'email_verified', true
+        ),
+        v_id::text,
+        null, now(), now()
+      );
+    end if;
+
     insert into public.usuarios (id_usuario, id_rol, email, nombres, apellidos, activo)
     values (v_id, v_rol, v_email, v_nombres, v_apellidos, true)
     on conflict (id_usuario) do update
@@ -132,32 +166,49 @@ begin
     values (v_id, v_rol_jef, false)
     on conflict (id_usuario, id_rol) do nothing;
 
-    -- Ambito: coordina las dos especialidades con mas profesionales
-    -- cargados, para que la demo tenga un equipo real que coordinar.
+    -- Ambito: coordina dos especialidades fijas.
+    --
+    -- Antes se elegian "las dos especialidades con mas profesionales
+    -- cargados", pero eso rompia el reset reproducible: en una base recien
+    -- limpia no hay profesionales, el LIMIT 2 no devuelve nada y la jefatura
+    -- queda sin ambito, sin poder publicar. Un seed de demo debe dar el mismo
+    -- resultado en cualquier base, asi que el ambito es explicito.
+    --
+    -- Medicina General (el bloque mas cargado de la demo) y Enfermería (el
+    -- segundo rol mas usado). Ambas son las que ejercita la bateria manual.
     delete from public.jefaturas_especialidades where id_jefatura = v_id;
     insert into public.jefaturas_especialidades (id_jefatura, id_especialidad)
     select v_id, id_especialidad
-    from (
-      select dse.id_especialidad, count(*) as n
-      from public.doctores_especialidades dse
-      join public.especialidades e on e.id_especialidad = dse.id_especialidad
-      where e.activo
-      group by dse.id_especialidad
-      order by count(*) desc, dse.id_especialidad
-      limit 2
-    ) t;
+    from public.especialidades
+    where nombre in ('Medicina General', 'Enfermería')
+      and activo
+    on conflict (id_jefatura, id_especialidad) do nothing;
 
-    -- También es enfermera, así que especialidad clínica para que pueda atender.
-    if not exists (
-      select 1 from public.doctores_especialidades where id_doctor = v_id
-    ) then
-      insert into public.doctores_especialidades (id_doctor, id_especialidad, es_principal)
-      select v_id, id_especialidad, true
-      from public.jefaturas_especialidades
-      where id_jefatura = v_id
-      order by id_especialidad
-      limit 1;
-    end if;
+    -- Limpieza y correccion de la especialidad clinica. La jefatura es
+    -- enfermera, asi que su especialidad clinica es Enfermería SIEMPRE.
+    --
+    -- El borrado va PRIMERO y no es decorativo: existe
+    -- uq_doctores_especialidades_principal, que permite una sola especialidad
+    -- principal por profesional. Si Medicina General sigue marcada como
+    -- principal, el insert de Enfermería como principal revienta por indice
+    -- unico. Y hace falta borrar en vez de solo insertar porque un
+    -- 'if not exists' deja intacta la fila vieja de una version anterior del
+    -- seed, con lo que el cruce sobrevive al reseteo.
+    --
+    -- La especialidad NO se toma del ambito de coordinacion: antes se hacia
+    -- 'order by id_especialidad limit 1' sobre jefaturas_especialidades, lo
+    -- que le asignaba Medicina General y hacia que la jefatura apareciera en
+    -- la agenda bajo un ambito que no era suyo.
+    delete from public.doctores_especialidades dse
+    using public.especialidades e
+    where dse.id_doctor = v_id
+      and e.id_pecialidad = dse.id_especialidad
+      and e.nombre <> 'Enfermería';
+
+    insert into public.doctores_especialidades (id_doctor, id_especialidad, es_principal)
+    values (v_id, v_esp_enf, true)
+    on conflict (id_doctor, id_especialidad) do update
+      set es_principal = excluded.es_principal;
   end if;
 end $$;
 
