@@ -1,9 +1,14 @@
 # Plan de pruebas manuales — v2 (base limpia)
 
-> Base reseteada el 2026-09-30. Cero datos operativos: 0 pacientes, 0 fichas,
-> 0 citas, 6076 bloques generados, equipo demo de 7 profesionales.
+> Base reseteada el 2026-09-30. Cero datos operativos: 0 fichas, 0 citas, 0 bonos,
+> 6076 bloques generados, equipo demo de 7 profesionales.
 > Esta version reemplaza al plan anterior: los datos que servian de referencia
 > ya no existen en la base.
+>
+> **El paciente demo si existe (1 registro) y es a proposito.** La Fase 2 necesita
+> un paciente con perfil para reservar y cancelar, y el registro en `pacientes` es
+> lo que se lo da (`fn_mi_id_paciente()`). Se borra al terminar la Fase 2, para
+> que la Fase 3 empiece con la lista de pacientes en 0. Ver el paso de corte.
 
 ## Reglas de esta ronda
 
@@ -71,6 +76,25 @@ agendar; no se prueban como login.
 | 2.5 | Liberar cita con mas de 1 h | paciente | Permitido, bloque vuelve a `disponible` |
 | 2.6 | El paciente no ve datos de otros pacientes | paciente | Sin acceso cruzado |
 
+### Corte entre la Fase 2 y la Fase 3 — obligatorio
+
+La Fase 3 arranca con `/pacientes` en 0, pero la Fase 2 necesita un paciente con
+perfil. Hay que borrar el registro del paciente demo al cerrar la 2.5, o el 3.1
+falla por residuo.
+
+```sql
+-- 1) Si quedo alguna cita viva, primero pasarla a cancelada para liberar el bloque.
+--    El DELETE directo lo bloquea la politica; pasar por la RPC es lo correcto.
+-- 2) Luego borrar el perfil de paciente:
+delete from public.pacientes where rut is not null or true;
+```
+
+> Ojo con dos trampas de RLS al limpiar por REST: un `DELETE` denegado devuelve
+> **HTTP 200 y borra 0 filas**, y `recetas_medicas` solo la puede borrar quien la
+> emitió. Por eso este corte se hace por SQL y se confirma con `count(*) = 0`.
+> Si quedan bloques en `reservada` sin cita que los respalde, devolverlos a
+> `disponible` antes de seguir.
+
 ## Fase 3 — Ficha clinica (append-only)
 
 | # | Caso | Cuenta | Resultado esperado |
@@ -106,6 +130,9 @@ agendar; no se prueban como login.
 | 5.6 | Agregar un rol a un usuario | admin | Se suma, **no se reemplaza** (modelo N-roles) |
 | 5.7 | Desactivar una cuenta | admin | `activo = false`; la cuenta no entra |
 | 5.8 | `/config-recinto` | admin | Configuracion legible y editable |
+| 5.9 | Crear un usuario desde `/usuarios` | admin | Se crea, y `usuario_roles` queda sincronizado |
+| 5.10 | `/rem`: el periodo sale en espanol | admin | **Septiembre 2026**, no "September 2026" |
+| 5.11 | `/rem` no muestra diagnosticos a jefatura | jefatura | El bloque queda oculto; `puede_ver_diagnosticos` en `false` |
 
 ## Fase 6 — Seguridad (regresion)
 
@@ -121,6 +148,8 @@ agendar; no se prueban como login.
 | 6.8 | El paciente no puede mover su cita a otro bloque | `trg_citas_paciente_solo_cancela` rechaza el `PATCH` |
 | 6.9 | El paciente no completa ni altera su cita | Solo le queda `estado = 'cancelada'` |
 | 6.10 | Finanzas y recetas no responden a `anon` ni a roles sin permiso | Las 4 tablas con `FORCE RLS` devuelven `[]`, no 401 |
+| 6.11 | Solo el administrador crea usuarios | `fn_crear_usuario` dice "Solo un administrador" a jefatura, administrativo y doctor |
+| 6.12 | Un trigger que escribe nunca queda en `invoker` | Bloque 8 de `supabase/tests/auditoria_rls.sql` devuelve 0 filas |
 
 > Los casos 6.8 a 6.10 se pueden verificar sin navegador desde la consola: el
 > `PATCH` se hace contra el endpoint de la tabla y se espera 403. Un 401 sobre

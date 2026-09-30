@@ -112,6 +112,26 @@ where schemaname = 'public'
 order by tablename, cmd;
 
 \echo ''
-\echo '=== FIN. Ningun bloque debe marcar REVISAR ni devolver filas en 1, 5 o 6. ==='
-\echo '   El 2 y el 7 son listas de revisión, no fallas. ==='
+\echo '=== 8. Triggers que ESCRIBEN y no son SECURITY DEFINER (debe salir 0) ==='
+\echo '--- Un trigger sin SECURITY DEFINER corre como el usuario que disparo'
+\echo '--- la sentencia. Si ese rol no tiene politica de escritura sobre la'
+\echo '--- tabla que el trigger modifica, el UPDATE afecta 0 filas SIN error.'
+\echo '--- Asi se perdian cupos: fn_liberar_horario dejaba el bloque en'
+\echo '--- reservada para siempre (corregido el 2026-09-30). Un trigger que'
+\echo '--- solo levanta excepcion o escribe new.<columna> puede ser invoker. ---'
+select t.tgname as trigger,
+       t.tgrelid::regclass::text as tabla,
+       p.proname as funcion
+from pg_trigger t
+join pg_proc p on p.oid = t.tgfoid
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and not t.tgisinternal
+  and not p.prosecdef
+  and p.prosrc ~* '(insert[[:space:]]+into|update[[:space:]]+[a-z_]+\.|delete[[:space:]]+from)'
+order by t.tgrelid::regclass::text, t.tgname;
+
+\echo ''
+\echo '=== FIN. Ningun bloque debe marcar REVISAR ni devolver filas en 1, 5, 6 u 8. ==='
+\echo '   El 2 y el 7 son listas de revision, no fallas. ==='
 \echo ''
