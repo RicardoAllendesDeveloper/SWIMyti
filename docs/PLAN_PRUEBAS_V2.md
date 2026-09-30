@@ -58,6 +58,7 @@ agendar; no se prueban como login.
 | 1.4 | Publicar jornada: generar bloques | jefatura | Se crean bloques de 15 min |
 | 1.5 | Ver la agenda desde la especialidad correcta | jefatura | Los bloques aparecen en la fecha esperada |
 | 1.6 | Horarios en hora Chile | jefatura | 09:00-16:45 local, **no 04:30** (bug historico) |
+| 1.7 | Un profesional **no coordinador** completa su propia cita desde la agenda | doctor | El bloque pasa a `completada`, no se queda `reservada` (regresion de `fn_liberar_horario`) |
 
 ## Fase 2 — Paciente y reservas
 
@@ -117,6 +118,13 @@ agendar; no se prueban como login.
 | 6.5 | El catalogo de profesionales no se lee sin sesion | `doctores_especialidades` respondiendo `[]` a `anon` |
 | 6.6 | Los anexos no se sirven por URL publica | El bucket `anexos` rechaza `/object/public/` |
 | 6.7 | Un anexo no se sube con un tipo no permitido | `allowed_mime_types` del bucket |
+| 6.8 | El paciente no puede mover su cita a otro bloque | `trg_citas_paciente_solo_cancela` rechaza el `PATCH` |
+| 6.9 | El paciente no completa ni altera su cita | Solo le queda `estado = 'cancelada'` |
+| 6.10 | Finanzas y recetas no responden a `anon` ni a roles sin permiso | Las 4 tablas con `FORCE RLS` devuelven `[]`, no 401 |
+
+> Los casos 6.8 a 6.10 se pueden verificar sin navegador desde la consola: el
+> `PATCH` se hace contra el endpoint de la tabla y se espera 403. Un 401 sobre
+> estas tablas es sintoma de politica `TO public`, no de un permiso denegado.
 
 ---
 
