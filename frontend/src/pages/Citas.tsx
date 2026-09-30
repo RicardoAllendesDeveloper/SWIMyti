@@ -108,7 +108,7 @@ function Citas() {
         fecha_inicio,
         fecha_fin,
         estado,
-        usuarios:id_profesional ( nombres, apellidos, roles ( nombre_rol ) ),
+        usuarios:id_profesional ( nombres, apellidos, roles:roles!usuarios_id_rol_fkey ( nombre_rol ) ),
         especialidades ( nombre )
       `,
         )

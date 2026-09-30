@@ -137,7 +137,7 @@ function Login() {
       // Esperar breve a que el contexto resuelva el rol para redirigir al portal natural
       const { data } = await supabase
         .from('usuarios')
-        .select('roles(nombre_rol)')
+        .select('roles:roles!usuarios_id_rol_fkey(nombre_rol)')
         .eq('id_usuario', (await supabase.auth.getUser()).data.user?.id ?? '')
         .maybeSingle()
       const related = data?.roles as { nombre_rol: string } | { nombre_rol: string }[] | null

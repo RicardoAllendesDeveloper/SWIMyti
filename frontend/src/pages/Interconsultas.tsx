@@ -82,7 +82,9 @@ function Interconsultas() {
     // Doctores (roles con rol doctor) para el destino
     const doctoresRes = await supabase
       .from('usuarios')
-      .select('id_usuario, nombres, apellidos, roles!inner(nombre_rol)')
+      .select(
+        'id_usuario, nombres, apellidos, roles:roles!usuarios_id_rol_fkey!inner(nombre_rol)',
+      )
       .eq('roles.nombre_rol', 'doctor')
       .eq('activo', true)
       .order('apellidos', { ascending: true })
@@ -154,7 +156,7 @@ function Interconsultas() {
     const res = await supabase
       .from('usuarios')
       .select(
-        'id_usuario, nombres, apellidos, roles!inner(nombre_rol), doctores_especialidades!inner(id_especialidad)',
+        'id_usuario, nombres, apellidos, roles:roles!usuarios_id_rol_fkey!inner(nombre_rol), doctores_especialidades!inner(id_especialidad)',
       )
       .eq('roles.nombre_rol', 'doctor')
       .eq('activo', true)
