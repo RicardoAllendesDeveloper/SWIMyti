@@ -297,11 +297,12 @@ function Pacientes() {
       return
     }
 
-    // 2) URL pública del archivo subido
-    const { data: urlData } = supabase.storage
-      .from('anexos')
-      .getPublicUrl(ruta)
-    const urlPublica = urlData?.publicUrl ?? ''
+    // 2) Se guarda el PATH del objeto, no una URL.
+    //
+    // El bucket 'anexos' es privado: una URL publica seria servible sin sesion,
+    // y una URL firmada expire en minutos, asi que tampoco sirve como dato
+    // guardado. El path es estable; la URL se firma en el momento de mostrar.
+    const rutaDocumento = ruta
 
     // 3) Registrar el anexo en la tabla
     const { error: insError } = await supabase.from('anexos_clinicos').insert({
@@ -309,7 +310,7 @@ function Pacientes() {
       id_usuario_subida: user.id,
       nombre_archivo: archivoAnexo.name,
       tipo_mime: archivoAnexo.type || 'application/octet-stream',
-      url_documento: urlPublica,
+      url_documento: rutaDocumento,
       descripcion: descripcionAnexo.trim() || null,
       tipo_anexo: tipoAnexo,
     })

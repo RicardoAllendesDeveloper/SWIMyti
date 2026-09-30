@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
 import type { AnexoClinico, OrdenExamen } from '../types/database'
+import { useSignedAttachmentUrls } from '../utils/useSignedAttachmentUrls'
 import '../styles/PacienteApoyo.css'
 
 function formatFechaHora(value: string): string {
@@ -36,6 +37,12 @@ type OrdenConAnexos = OrdenExamen & {
 
 function BandejaOrdenes() {
   const [ordenes, setOrdenes] = useState<OrdenConAnexos[]>([])
+  // El bucket 'anexos' es privado: los enlaces se firman, no se guardan. Aqui
+  // los anexos vienen anidados en cada orden, asi que se aplana la lista para
+  // firmarlos de una vez.
+  const signedAnexoUrls = useSignedAttachmentUrls(
+    ordenes.flatMap((o) => o.anexos ?? []),
+  )
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -279,12 +286,15 @@ function BandejaOrdenes() {
                               {o.anexos.map((a) => (
                                 <a
                                   key={a.id_anexo}
-                                  href={a.url_documento}
+                                  href={signedAnexoUrls[a.id_anexo] ?? undefined}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="bandeja-anexo-link"
+                                  aria-disabled={!signedAnexoUrls[a.id_anexo]}
                                 >
-                                  {TIPO_ANEXO_LABEL[a.tipo_anexo ?? ''] ?? 'Resultado'}
+                                  {signedAnexoUrls[a.id_anexo]
+                                    ? (TIPO_ANEXO_LABEL[a.tipo_anexo ?? ''] ?? 'Resultado')
+                                    : 'Generando enlace...'}
                                 </a>
                               ))}
                             </div>
@@ -337,14 +347,15 @@ function SubirResultadoOrden({
       return
     }
 
-    const { data: urlData } = supabase.storage.from('anexos').getPublicUrl(ruta)
-
+    // El bucket 'anexos' es privado, asi que se guarda el path del objeto y no
+    // una URL: una URL publica seria accesible sin sesion y una firmada expira
+    // en minutos. La URL se firma al mostrar (ver services/anexos.ts).
     const { error: insError } = await supabase.from('anexos_clinicos').insert({
       id_paciente: orden.id_paciente,
       id_usuario_subida: user.id,
       nombre_archivo: archivo.name,
       tipo_mime: archivo.type || 'application/octet-stream',
-      url_documento: urlData?.publicUrl ?? '',
+      url_documento: ruta,
       descripcion: descripcion.trim() || null,
       tipo_anexo: 'laboratorio',
     })

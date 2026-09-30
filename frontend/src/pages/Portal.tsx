@@ -6,6 +6,7 @@ import CalendarioDisponibilidad from '../components/CalendarioDisponibilidad'
 import type { AnexoClinico, Cita, Interconsulta, OrdenExamen } from '../types/database'
 import { claveDia, claveHoy } from '../utils/fechas'
 import { traerEnTrozos } from '../utils/paginacion'
+import { useSignedAttachmentUrls } from '../utils/useSignedAttachmentUrls'
 import '../styles/Portal.css'
 
 function formatFechaHora(value: string): string {
@@ -69,6 +70,8 @@ function Portal() {
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
   const [anexos, setAnexos] = useState<AnexoClinico[]>([])
+  // El bucket 'anexos' es privado: los enlaces se firman, no se guardan.
+  const signedAnexoUrls = useSignedAttachmentUrls(anexos)
   const [interconsultas, setInterconsultas] = useState<Interconsulta[]>([])
   const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [pacienteNombre, setPacienteNombre] = useState('')
@@ -671,13 +674,16 @@ function Portal() {
                           <p className="portal-muted">{formatFecha(a.created_at)}</p>
                           {a.url_documento ? (
                             <a
-                              href={a.url_documento}
+                              href={signedAnexoUrls[a.id_anexo] ?? undefined}
                               target="_blank"
                               rel="noreferrer"
                               className="dash-btn-secondary"
+                              aria-disabled={!signedAnexoUrls[a.id_anexo]}
                               style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
                             >
-                              Ver / descargar
+                              {signedAnexoUrls[a.id_anexo]
+                                ? 'Ver / descargar'
+                                : 'Generando enlace...'}
                             </a>
                           ) : null}
                         </div>

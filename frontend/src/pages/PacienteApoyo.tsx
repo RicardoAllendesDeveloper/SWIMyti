@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import Sidebar from '../components/Sidebar'
 import type { AnexoClinico, OrdenExamen } from '../types/database'
+import { useSignedAttachmentUrls } from '../utils/useSignedAttachmentUrls'
 import '../styles/PacienteApoyo.css'
 
 function formatFechaHora(value: string): string {
@@ -43,6 +44,8 @@ function PacienteApoyo() {
   } | null>(null)
   const [ordenes, setOrdenes] = useState<OrdenExamen[]>([])
   const [anexos, setAnexos] = useState<AnexoClinico[]>([])
+  // El bucket 'anexos' es privado: los enlaces se firman, no se guardan.
+  const signedAnexoUrls = useSignedAttachmentUrls(anexos)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -204,13 +207,16 @@ function PacienteApoyo() {
                           <p className="pa-texto">{a.descripcion || a.nombre_archivo}</p>
                           {a.url_documento ? (
                             <a
-                              href={a.url_documento}
+                              href={signedAnexoUrls[a.id_anexo] ?? undefined}
                               target="_blank"
                               rel="noreferrer"
                               className="pa-btn-secondary"
+                              aria-disabled={!signedAnexoUrls[a.id_anexo]}
                               style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
                             >
-                              Ver / descargar
+                              {signedAnexoUrls[a.id_anexo]
+                                ? 'Ver / descargar'
+                                : 'Generando enlace...'}
                             </a>
                           ) : null}
                         </div>

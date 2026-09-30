@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import { homeRol, puedeEnmendar } from '../utils/permisos'
+import { useSignedAttachmentUrls } from '../utils/useSignedAttachmentUrls'
 import type { AnexoClinico, FichaMedica, UsuarioResumen } from '../types/database'
 import '../styles/DetalleFicha.css'
 
@@ -150,6 +151,8 @@ function Expediente() {
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [certificados, setCertificados] = useState<Certificado[]>([])
   const [anexos, setAnexos] = useState<AnexoClinico[]>([])
+  // El bucket 'anexos' es privado: los enlaces se firman, no se guardan.
+  const signedAnexoUrls = useSignedAttachmentUrls(anexos)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -742,13 +745,16 @@ function Expediente() {
                     {a.url_documento ? (
                       <p className="df-enmienda-autor">
                         <a
-                          href={a.url_documento}
+                          href={signedAnexoUrls[a.id_anexo] ?? undefined}
                           target="_blank"
                           rel="noreferrer"
                           className="df-btn-secondary"
+                          aria-disabled={!signedAnexoUrls[a.id_anexo]}
                           style={{ textDecoration: 'none', display: 'inline-block', marginTop: '0.4rem' }}
                         >
-                          Ver / descargar documento
+                          {signedAnexoUrls[a.id_anexo]
+                            ? 'Ver / descargar documento'
+                            : 'Generando enlace...'}
                         </a>
                       </p>
                     ) : null}
