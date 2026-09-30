@@ -1,5 +1,13 @@
 # Plan de pruebas manuales — v2 (base limpia)
 
+> **El documento de ejecucion es `PLAN_PRUEBAS_V3.docx`** (77 pruebas, generado el
+> 2026-09-30). Este Markdown queda como resumen versionable y diffeable en git: el
+> Word es binario y en el no se ven los cambios. Si ves una discrepancia, el Word
+> manda, y este archivo se actualiza despues.
+>
+> Los `.docx` y `.md` anteriores quedan como archivo historico: sus observaciones
+> de campo ya estan volcadas al v3 como regresiones y como decisiones pendientes.
+
 > Base reseteada el 2026-09-30. Cero datos operativos: 0 fichas, 0 citas, 0 bonos,
 > 6076 bloques generados, equipo demo de 7 profesionales.
 > Esta version reemplaza al plan anterior: los datos que servian de referencia
