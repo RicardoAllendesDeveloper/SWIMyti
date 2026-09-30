@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
@@ -55,6 +55,7 @@ type ProfesionalAgenda = {
   id_profesional: string
   nombre: string
   especialidad: string
+  id_especialidad: number
 }
 
 function Disponibilidad() {
@@ -90,6 +91,24 @@ function Disponibilidad() {
 
   const [tabAtenciones, setTabAtenciones] = useState<TabAtenciones>('actuales')
   const [busquedaBloques, setBusquedaBloques] = useState('')
+
+  // Especialidades que se ofrecen para publicar. Cuando coordina una agenda,
+  // el catalogo completo es una trampa: casi cualquier combinacion con el
+  // profesional elegido la rechaza el RPC con 'El profesional no tiene
+  // asignada esa especialidad', y eso se descubre solo tras enviar el
+  // formulario. Se acota a las que el profesional seleccionado tiene de
+  // verdad, que es el mismo filtro que aplico fn_generar_bloques_jornada.
+  const especialidadesPublicables: Especialidad[] = useMemo(() => {
+    if (!puedeCoordinarAgenda || !profesional) return especialidades
+    const propias = new Map<number, string>()
+    for (const p of profesionales) {
+      if (p.id_profesional === profesional && !propias.has(p.id_especialidad)) {
+        propias.set(p.id_especialidad, p.especialidad)
+      }
+    }
+    if (propias.size === 0) return especialidades
+    return [...propias].map(([id_especialidad, nombre]) => ({ id_especialidad, nombre }))
+  }, [puedeCoordinarAgenda, profesional, profesionales, especialidades])
   const [paginaBloques, setPaginaBloques] = useState(1)
   const POR_PAGINA = 10
 
@@ -283,8 +302,8 @@ function Disponibilidad() {
 
     const idEspFinal = especialidad
       ? Number(especialidad)
-      : especialidades.length === 1
-        ? especialidades[0].id_especialidad
+      : especialidadesPublicables.length === 1
+        ? especialidadesPublicables[0].id_especialidad
         : null
 
     if (!idEspFinal) {
@@ -716,7 +735,20 @@ function Disponibilidad() {
                     <select
                       id="disp-profesional"
                       value={profesional}
-                      onChange={(e) => setProfesional(e.target.value)}
+                      onChange={(e) => {
+                        const elegido = e.target.value
+                        setProfesional(elegido)
+                        // Al cambiar de profesional, la especialidad elegida
+                        // puede quedar invalida. Se recalcula desde las que el
+                        // nuevo tiene asignadas, sin dejar un valor invalido en
+                        // el formulario que el RPC rejectaria.
+                        if (puedeCoordinarAgenda) {
+                          const propias = profesionales.filter((p) => p.id_profesional === elegido)
+                          setEspecialidad(
+                            propias.length === 1 ? String(propias[0].id_especialidad) : '',
+                          )
+                        }
+                      }}
                       required
                       disabled={saving}
                     >
@@ -739,7 +771,7 @@ function Disponibilidad() {
                   </p>
                 )}
 
-                {especialidades.length > 1 ? (
+                {especialidadesPublicables.length > 1 ? (
                   <div className="dash-field">
                     <label htmlFor="disp-especialidad">Especialidad</label>
                     <select
@@ -748,16 +780,16 @@ function Disponibilidad() {
                       onChange={(e) => setEspecialidad(e.target.value)}
                     >
                       <option value="">Selecciona una especialidad</option>
-                      {especialidades.map((e) => (
+                      {especialidadesPublicables.map((e) => (
                         <option key={e.id_especialidad} value={String(e.id_especialidad)}>
                           {e.nombre}
                         </option>
                       ))}
                     </select>
                   </div>
-                ) : especialidades.length === 1 ? (
+                ) : especialidadesPublicables.length === 1 ? (
                   <p className="dash-field-hint" style={{ margin: '0 0 0.6rem' }}>
-                    Especialidad: <strong>{especialidades[0].nombre}</strong>
+                    Especialidad: <strong>{especialidadesPublicables[0].nombre}</strong>
                   </p>
                 ) : null}
 
