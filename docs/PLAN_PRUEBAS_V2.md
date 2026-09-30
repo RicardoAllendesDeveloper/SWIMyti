@@ -81,7 +81,8 @@ agendar; no se prueban como login.
 | 3.5 | Editar ficha: debe ser **imposible** | doctor | Sin boton de edicion, o el trigger rechaza |
 | 3.6 | Crear enmienda de auditoria | doctor | Se agrega una entrada nueva, no se edita la anterior |
 | 3.7 | Adjuntar anexo clinico | doctor | Sube a Storage y queda listado |
-| 3.8 | Abrir anexo | doctor | Se descarga o abre correctamente |
+| 3.8 | Abrir anexo | doctor | **Enlace firmado**: aparece "Generando enlace..." y luego abre. El bucket es privado, si apareciera una URL de `/object/public/` seria un fallo |
+| 3.9 | Ver el anexo en el portal del paciente | paciente | El paciente ve y abre **solo** los suyos |
 
 ## Fase 4 — Interconsultas
 
@@ -113,6 +114,9 @@ agendar; no se prueban como login.
 | 6.2 | La ficha no se puede editar por API | Trigger de inmutabilidad activo |
 | 6.3 | La enfermeria no atiende en otra especialidad | RPC de validacion |
 | 6.4 | Un profesional no agenda fuera de su especialidad | RLS de `horarios_disponibles` |
+| 6.5 | El catalogo de profesionales no se lee sin sesion | `doctores_especialidades` respondiendo `[]` a `anon` |
+| 6.6 | Los anexos no se sirven por URL publica | El bucket `anexos` rechaza `/object/public/` |
+| 6.7 | Un anexo no se sube con un tipo no permitido | `allowed_mime_types` del bucket |
 
 ---
 
