@@ -140,7 +140,7 @@ delete from public.pacientes where rut is not null or true;
 | 5.8 | `/config-recinto` | admin | Configuracion legible y editable |
 | 5.9 | Crear un usuario desde `/usuarios` | admin | Se crea, y `usuario_roles` queda sincronizado |
 | 5.10 | `/rem`: el periodo sale en espanol | admin | **Septiembre 2026**, no "September 2026" |
-| 5.11 | `/rem` no muestra diagnosticos a jefatura | jefatura | El bloque queda oculto; `puede_ver_diagnosticos` en `false` |
+| 5.11 | `/rem` **muestra** diagnosticos a jefatura | jefatura | El bloque aparece con el top 5; `puede_ver_diagnosticos` en `true`. Resuelto por `20260930240000` |
 
 ## Fase 6 — Seguridad (regresion)
 
@@ -158,6 +158,7 @@ delete from public.pacientes where rut is not null or true;
 | 6.10 | Finanzas y recetas no responden a `anon` ni a roles sin permiso | Las 4 tablas con `FORCE RLS` devuelven `[]`, no 401 |
 | 6.11 | Solo el administrador crea usuarios | `fn_crear_usuario` dice "Solo un administrador" a jefatura, administrativo y doctor |
 | 6.12 | Un trigger que escribe nunca queda en `invoker` | Bloque 8 de `supabase/tests/auditoria_rls.sql` devuelve 0 filas |
+| 6.13 | Sin sesion no se puede enumerar la agenda | `horarios_disponibles` responde `[]` a `anon`, `authenticated` sigue viendo los bloques. Resuelto por `20260930240000` |
 
 > Los casos 6.8 a 6.10 se pueden verificar sin navegador desde la consola: el
 > `PATCH` se hace contra el endpoint de la tabla y se espera 403. Un 401 sobre
