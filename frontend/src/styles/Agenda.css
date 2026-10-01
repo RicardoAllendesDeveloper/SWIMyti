@@ -250,6 +250,26 @@ span.jornada-hora {
   cursor: default;
 }
 
+/* Hora cuya hora de termino ya paso. Puede seguir en estado 'disponible' en la
+   base, pero no es reservable ni deshabilitable: se ve gris, nunca verde. */
+.jornada-hora.is-vencida {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.jornada-agotada {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+}
+
 .jornada-hora.is-disponible {
   border-color: #86efac;
   background: #f0fdf4;

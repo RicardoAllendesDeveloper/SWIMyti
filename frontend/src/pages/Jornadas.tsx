@@ -486,6 +486,11 @@ function Jornadas() {
     return h.estado === 'bloqueada'
   }
 
+  /** Una jornada sin ninguna hora accionable: ya termino o solo tiene pasado. */
+  function jornadaAgotada(g: GrupoJornada): boolean {
+    return !g.bloques.some((b) => puedeBloquear(b) || puedeReactivar(b))
+  }
+
   /** Los seleccionados que siguen siendo válidos para la acción elegida. */
   function seleccionadosBloqueo(): HorarioDisponible[] {
     return horarios.filter((h) => seleccionBloqueo.includes(h.id_horario) && puedeBloquear(h))
@@ -548,11 +553,19 @@ function Jornadas() {
       const horas = g.bloques.map((b) => b.fecha_inicio).sort()
       g.rangoHorario = `${formatHoraMin(horas[0])} – ${formatHoraMin(horas[horas.length - 1])}`
     }
-    return Array.from(mapa.values()).sort((a, b) =>
-      a.fecha === b.fecha
-        ? a.rangoHorario.localeCompare(b.rangoHorario)
-        : a.fecha.localeCompare(b.fecha),
-    )
+    // Orden: primero las jornadas que todavia se pueden actuar (tienen horas
+    // futuras), despues las que ya se agotaron. Ordenar solo por fecha dejaba
+    // arriba las jornadas de ayer y hoy, donde no hay nada seleccionable: se
+    // veía una lista verde sin ninguna accion posible.
+    return Array.from(mapa.values())
+      .sort((a, b) => {
+        const pasA = jornadaAgotada(a)
+        const pasB = jornadaAgotada(b)
+        if (pasA !== pasB) return pasA ? 1 : -1
+        return a.fecha === b.fecha
+          ? a.rangoHorario.localeCompare(b.rangoHorario)
+          : a.fecha.localeCompare(b.fecha)
+      })
   })()
 
   const totalPaginasBloques = Math.max(1, Math.ceil(gruposJornada.length / POR_PAGINA))
@@ -891,6 +904,9 @@ function Jornadas() {
                                   </span>
                                 </div>
                                 <div className="jornada-header-derecha">
+                                  {jornadaAgotada(g) ? (
+                                    <span className="jornada-agotada">Sin horas accionables</span>
+                                  ) : null}
                                   <label className="jornada-todas">
                                     <input
                                       type="checkbox"
@@ -924,11 +940,17 @@ function Jornadas() {
                               <div className="jornada-horas">
                                 {horas.map((h) => {
                                   const seleccionable = puedeBloquear(h) || puedeReactivar(h)
-                                  const clases = `jornada-hora${h.estado === 'disponible' ? ' is-disponible' : h.estado === 'reservada' ? ' is-reservada' : ' is-no'}${
+                                  // Una hora verde significa "reservable ahora".
+                                  // Una hora que ya paso no lo esta, aunque siga
+                                  // en estado 'disponible' en la base, asi que
+                                  // no puede verse igual que una futura.
+                                  const vencida = new Date(h.fecha_fin) <= new Date()
+                                  const clases = `jornada-hora${vencida ? ' is-vencida' : h.estado === 'disponible' ? ' is-disponible' : h.estado === 'reservada' ? ' is-reservada' : ' is-no'}${
                                     seleccionBloqueo.includes(h.id_horario) ? ' is-selected' : ''
                                   }${h.estado === 'bloqueada' ? ' is-bloqueada' : ''}`
-                                  const titulo =
-                                    h.estado === 'bloqueada' && h.motivo_bloqueo
+                                  const titulo = vencida
+                                    ? `${ESTADO_LABEL[h.estado] ?? h.estado} (ya pasó)`
+                                    : h.estado === 'bloqueada' && h.motivo_bloqueo
                                       ? `Deshabilitada: ${h.motivo_bloqueo}`
                                       : ESTADO_LABEL[h.estado] ?? h.estado
 
