@@ -105,14 +105,35 @@ describe('pantallas de agenda sin recorte silencioso', () => {
         limites,
         `${pagina} tiene ${limites.length} limit() fijo(s). ` +
           `El tope de 1000 filas lo impone el servidor: subirlo en el cliente ` +
-          `no arregla nada, hay que pedir por tramos con range().`,
+          `no arregla nada, hay que pedir por tramos con range() o acotar por fecha.`,
       ).toEqual([])
     })
 
-    it(`${pagina} pide la agenda por tramos`, () => {
-      expect(leerPagina(pagina), `${pagina} no usa traerEnTrozos`).toContain(
-        'traerEnTrozos',
-      )
+    /**
+     * Hay dos maneras válidas de no comerse el tope de 1000 filas: pedir por
+     * tramos (`traerEnTrozos`), o acotar el conjunto a algo que de verdad quepa
+     * en 1000 filas. Lo que no vale es ninguna de las dos: es cargar el
+     * horizonte entero y descubrir el recorte en pantalla.
+     *
+     * `Jornadas.tsx` pasó de lo primero a lo segundo: pedía los ~6.900 bloques
+     * del horizonte en 7 tandas (más de un segundo de red, medido) y ahora pide
+     * un día con filtro por profesional, que son ~200 filas en un request.
+     */
+    it(`${pagina} acota la carga (por tramos o por fecha)`, () => {
+      const fuente = leerPagina(pagina)
+      const acotada =
+        fuente.includes('traerEnTrozos') ||
+        // Un rango explícito de fechas en el filtro es una cota real.
+        /\.gte\(\s*'fecha_inicio'/.test(fuente) ||
+        /\.eq\(\s*'fecha_inicio'/.test(fuente)
+
+      expect(
+        acotada,
+        `${pagina} no acota la carga de horarios: o usa traerEnTrozos, o ` +
+          `filtra por fecha_inicio con gte/eq. Sin una de las dos, se está ` +
+          `pidiendo el horizonte entero y el tope de 1000 filas lo recorta en ` +
+          `silencio.`,
+      ).toBe(true)
     })
   }
 })

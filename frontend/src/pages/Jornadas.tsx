@@ -3,8 +3,7 @@ import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
 import type { Especialidad, HorarioDisponible, MotivoBloqueo } from '../types/database'
-import { claveDia, formatHoraMin } from '../utils/fechas'
-import { traerEnTrozos } from '../utils/paginacion'
+import { claveDia, formatHoraMin, rangoUtcDeDia, desplazarDia, claveHoy } from '../utils/fechas'
 import '../styles/Agenda.css'
 
 function formatFechaHora(value: string): string {
@@ -89,6 +88,12 @@ function Jornadas() {
   const [paginaCitas, setPaginaCitas] = useState(1)
   const POR_PAGINA = 10
 
+  // Navegación por día y filtro por profesional: ver `loadBloques`.
+  const [diaVisto, setDiaVisto] = useState(() => claveHoy())
+  const [filtroProfesional, setFiltroProfesional] = useState('')
+  const [cargandoBloques, setCargandoBloques] = useState(false)
+  const [errorBloques, setErrorBloques] = useState<string | null>(null)
+
   // Deshabilitar horas
   const [seleccionBloqueo, setSeleccionBloqueo] = useState<number[]>([])
   const [modalBloqueo, setModalBloqueo] = useState<HorarioDisponible[] | null>(null)
@@ -162,37 +167,10 @@ function Jornadas() {
       if (filas.length === 1) setProfesional(filas[0].id_profesional)
     }
 
-    // Todos los bloques, por tramos: el recinto supera los 1000 y PostgREST
-    // corta en silencio al limite.
-    const CAMPOS_HORARIOS = `
-        id_horario,
-        id_profesional,
-        id_especialidad,
-        fecha_inicio,
-        fecha_fin,
-        estado,
-        motivo_bloqueo,
-        bloqueado_por,
-        bloqueado_at,
-        usuarios:id_profesional ( nombres, apellidos ),
-        especialidades ( nombre )
-      `
-
-    const { filas: bloques, error: errorHorarios } = await traerEnTrozos(
-      (desde, hasta) =>
-        supabase
-          .from('horarios_disponibles')
-          .select(CAMPOS_HORARIOS)
-          .order('fecha_inicio', { ascending: true })
-          .range(desde, hasta),
-      1000,
-    )
-
-    if (errorHorarios) {
-      setError(errorHorarios)
-    } else {
-      setHorarios(bloques as unknown as HorarioDisponible[])
-    }
+    // Los bloques NO se cargan acá: se cargan por día en `loadBloques`. Pedir
+    // los ~6.900 del horizonte completo tardaba más de un segundo y se pintaba
+    // una tabla de 30 días × 6 profesionales que no se puede usar.
+    // Ver `loadBloques` y el filtro por profesional.
 
     // Citas del área: las de los profesionales coordinables. Para el
     // administrador son todas; para la jefatura, las de su servicio, y las
@@ -256,6 +234,77 @@ function Jornadas() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  /**
+   * Carga los bloques de UN día, y opcionalmente de un solo profesional.
+   *
+   * Antes se pedía el horizonte completo (30 días × 6 profesionales ≈ 6.900
+   * filas) en 7 tandas de 1.000 y se agrupaba todo en memoria para pintar una
+   * tabla de 10 filas por página. Medido contra la BD real, cada tanda costaba
+   * ~170 ms: más de un segundo de red para mostrar datos que nadie iba a
+   * recorrer, y el agrupamiento en el cliente era lo más caro de todo.
+   *
+   * Un día son ~200 filas en un solo request. Además el filtro por
+   * profesional es lo que hace utilizable la vista: para rotar el receso hay
+   * que ver a un profesional y su franja, no seis columnas mezcladas.
+   */
+  const loadBloques = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    setCargandoBloques(true)
+    setErrorBloques(null)
+
+    const CAMPOS_HORARIOS = `
+        id_horario,
+        id_profesional,
+        id_especialidad,
+        fecha_inicio,
+        fecha_fin,
+        estado,
+        motivo_bloqueo,
+        bloqueado_por,
+        bloqueado_at,
+        usuarios:id_profesional ( nombres, apellidos ),
+        especialidades ( nombre )
+      `
+
+    // El rango UTC se calcula desde el día chileno, no con un offset fijo:
+    // ver `rangoUtcDeDia`.
+    const { desde, hasta } = rangoUtcDeDia(diaVisto)
+
+    let consulta = supabase
+      .from('horarios_disponibles')
+      .select(CAMPOS_HORARIOS)
+      .gte('fecha_inicio', desde)
+      .lt('fecha_inicio', hasta)
+      .order('fecha_inicio', { ascending: true })
+
+    // Sin profesional elegido se piden los del día de todos los coordinables;
+    // con uno elegido, solo los suyos.
+    if (filtroProfesional) {
+      consulta = consulta.eq('id_profesional', filtroProfesional)
+    }
+
+    const { data, error } = await consulta
+
+    if (error) {
+      setErrorBloques(error.message)
+      setHorarios([])
+    } else {
+      setHorarios((data ?? []) as unknown as HorarioDisponible[])
+      // La selección puede apuntar a horas de otro día: se descarta para no
+      // bloquear algo que ya no está a la vista.
+      setSeleccionBloqueo([])
+      setPaginaBloques(1)
+    }
+
+    setCargandoBloques(false)
+  }, [diaVisto, filtroProfesional])
+
+  useEffect(() => {
+    void loadBloques()
+  }, [loadBloques])
 
   /**
    * Especialidades publicables para el profesional elegido. El catálogo
@@ -338,7 +387,7 @@ function Jornadas() {
     setHoraInicio('')
     setHoraFin('')
     setEspecialidad('')
-    await loadData()
+    await Promise.all([loadData(), loadBloques()])
   }
 
   async function eliminarJornada(g: { fecha: string; idEspecialidad: number; idProfesional: string }) {
@@ -379,7 +428,7 @@ function Jornadas() {
     }
 
     setSuccess(partes.join(' '))
-    await loadData()
+    await Promise.all([loadData(), loadBloques()])
   }
 
   async function cancelarCita(idCita: number) {
@@ -398,7 +447,7 @@ function Jornadas() {
       return
     }
     setSuccess('Cita cancelada. El horario vuelve a estar disponible.')
-    await loadData()
+    await Promise.all([loadData(), loadBloques()])
   }
 
   /**
@@ -469,7 +518,7 @@ function Jornadas() {
       setAvisoLlamar(afectados)
     }
 
-    await loadData()
+    await Promise.all([loadData(), loadBloques()])
   }
 
   /**
@@ -494,7 +543,7 @@ function Jornadas() {
     setSuccess(
       `Se reactivaron ${n} hora${n === 1 ? '' : 's'}. Los pacientes con citas canceladas tienen que tomar hora de nuevo.`,
     )
-    await loadData()
+    await Promise.all([loadData(), loadBloques()])
   }
 
   function alternarSeleccion(id: number) {
@@ -880,15 +929,78 @@ function Jornadas() {
                   <span className="dash-badge">{gruposJornada.length} jornadas</span>
                 </div>
 
-                {loading ? (
+                {loading || cargandoBloques ? (
                   <p className="dash-loading">Cargando bloques…</p>
                 ) : (
                   <>
-                    <div className="dash-filter-bar">
+                    <div className="jornadas-nav">
+                      <div className="jornadas-nav-dia">
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          aria-label="Día anterior"
+                          onClick={() => setDiaVisto(desplazarDia(diaVisto, -1))}
+                        >
+                          ‹
+                        </button>
+                        <label htmlFor="jornadas-dia" className="dash-muted">
+                          Día
+                        </label>
+                        <input
+                          id="jornadas-dia"
+                          type="date"
+                          value={diaVisto}
+                          onChange={(e) => {
+                            if (e.target.value) setDiaVisto(e.target.value)
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="dash-btn-secondary"
+                          aria-label="Día siguiente"
+                          onClick={() => setDiaVisto(desplazarDia(diaVisto, 1))}
+                        >
+                          ›
+                        </button>
+                        {diaVisto !== claveHoy() ? (
+                          <button
+                            type="button"
+                            className="dash-btn-secondary"
+                            onClick={() => setDiaVisto(claveHoy())}
+                          >
+                            Hoy
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="jornadas-nav-prof">
+                        <label htmlFor="jornadas-prof" className="dash-muted">
+                          Profesional
+                        </label>
+                        <select
+                          id="jornadas-prof"
+                          value={filtroProfesional}
+                          onChange={(e) => setFiltroProfesional(e.target.value)}
+                        >
+                          <option value="">Todos los del área</option>
+                          {(() => {
+                            const vistos = new Map<string, string>()
+                            for (const p of profesionales) {
+                              vistos.set(p.id_profesional, p.nombre || 'Profesional')
+                            }
+                            return Array.from(vistos.entries())
+                              .sort((a, b) => a[1].localeCompare(b[1]))
+                              .map(([id, nombre]) => (
+                                <option key={id} value={id}>
+                                  {nombre}
+                                </option>
+                              ))
+                          })()}
+                        </select>
+                      </div>
                       <input
                         className="dash-filter-input"
                         type="search"
-                        placeholder="Buscar por fecha, especialidad o estado…"
+                        placeholder="Buscar por especialidad o estado…"
                         value={busquedaBloques}
                         onChange={(e) => {
                           setBusquedaBloques(e.target.value)
@@ -900,6 +1012,9 @@ function Jornadas() {
                         {gruposJornada.length === 1 ? '' : 's'}
                       </span>
                     </div>
+                    {errorBloques ? (
+                      <p className="dash-error">{errorBloques}</p>
+                    ) : null}
                     {gruposJornada.length === 0 ? (
                       <p className="dash-empty">No hay bloques que coincidan.</p>
                     ) : (

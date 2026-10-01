@@ -570,6 +570,69 @@
   padding-right: 0.5rem;
 }
 
+/*
+ * Navegación por día y filtro por profesional de Jornadas.
+ *
+ * No es un adorno: pedir el horizonte completo (30 días × 6 profesionales)
+ * hacía la pantalla inusable. Ahora se pide un día, así que hace falta poder
+ * moverse por el calendario sin recargar la página a mano.
+ */
+.jornadas-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.jornadas-nav-dia,
+.jornadas-nav-prof {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.jornadas-nav input[type='date'],
+.jornadas-nav select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: #fff;
+}
+
+/* El input de fecha tiene un ancho intrínseco pequeño; se estira para que la
+   barra no quede apretada en pantallas de notebook. */
+.jornadas-nav input[type='date'] {
+  min-width: 9.5rem;
+}
+
+.jornadas-nav .dash-btn-secondary {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  min-width: 2.2rem;
+}
+
+.jornadas-nav .dash-muted {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .jornadas-nav {
+    gap: 0.6rem;
+  }
+
+  .jornadas-nav .dash-filter-input {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
 .dash-pagination {
   display: flex;
   align-items: center;
