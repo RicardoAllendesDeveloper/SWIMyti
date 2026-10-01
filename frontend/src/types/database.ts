@@ -64,12 +64,27 @@ export type HorarioDisponible = {
    * hora bloqueada pasa a `cancelada`. Ver migración 20261001150100.
    */
   estado: 'disponible' | 'reservada' | 'cancelada' | 'completada' | 'bloqueada'
-  motivo_bloqueo?: string | null
-  bloqueado_por?: string | null
-  bloqueado_at?: string | null
+    motivo_bloqueo?: string | null
+    id_motivo_bloqueo?: number | null
+    bloqueado_por?: string | null
+    bloqueado_at?: string | null
   created_at?: string
   usuarios?: UsuarioResumen | null
   especialidades?: Pick<Especialidad, 'nombre'> | Pick<Especialidad, 'nombre'>[] | null
+}
+
+/**
+ * Catálogo de motivos de bloqueo de horas. El `tipo` no es decorativo: es lo
+ * que decide si bloquear sin cobertura se rechaza (planificado) o se permite
+ * con advertencia (sobrevenido), y lo que después necesita RRHH para licencias,
+ * libres administrativos y vacaciones.
+ */
+export type MotivoBloqueo = {
+  id_motivo: number
+  nombre: string
+  tipo: 'planificado' | 'sobrevenido'
+  requiere_detalle: boolean
+  activo?: boolean
 }
 
 export type Cita = {

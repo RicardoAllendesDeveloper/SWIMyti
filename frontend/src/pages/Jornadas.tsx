@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { supabase } from '../services/supabase'
 import { useAuthRol } from '../context/AuthRolContext'
 import Sidebar from '../components/Sidebar'
-import type { Especialidad, HorarioDisponible } from '../types/database'
+import type { Especialidad, HorarioDisponible, MotivoBloqueo } from '../types/database'
 import { claveDia, formatHoraMin } from '../utils/fechas'
 import { traerEnTrozos } from '../utils/paginacion'
 import '../styles/Agenda.css'
@@ -92,7 +92,12 @@ function Jornadas() {
   // Deshabilitar horas
   const [seleccionBloqueo, setSeleccionBloqueo] = useState<number[]>([])
   const [modalBloqueo, setModalBloqueo] = useState<HorarioDisponible[] | null>(null)
-  const [motivoBloqueo, setMotivoBloqueo] = useState('')
+  const [idMotivoBloqueo, setIdMotivoBloqueo] = useState(0)
+  const [detalleBloqueo, setDetalleBloqueo] = useState('')
+  const [motivosBloqueo, setMotivosBloqueo] = useState<MotivoBloqueo[]>([])
+  const [avisoCobertura, setAvisoCobertura] = useState<string[] | null>(null)
+
+  const motivoElegido = motivosBloqueo.find((m) => m.id_motivo === idMotivoBloqueo)
   const [bloqueando, setBloqueando] = useState(false)
   const [avisoLlamar, setAvisoLlamar] = useState<
     { id_cita: number; id_paciente: number; fecha: string }[] | null
@@ -119,6 +124,22 @@ function Jornadas() {
       .select('id_especialidad, nombre')
       .eq('activo', true)
       .order('nombre', { ascending: true })
+
+    // Catálogo de motivos: lo elige la jefatura al bloquear, y el tipo
+    // (planificado/sobrevenido) es lo que decide si la falta de cobertura se
+    // rechaza o solo se advierte. Sin esto no habría forma de rotar el receso.
+    const motivosRes = await supabase
+      .from('motivos_bloqueo')
+      .select('id_motivo, nombre, tipo, requiere_detalle')
+      .eq('activo', true)
+      .order('tipo', { ascending: true })
+      .order('nombre', { ascending: true })
+
+    if (motivosRes.error) {
+      setError(motivosRes.error.message)
+    } else {
+      setMotivosBloqueo((motivosRes.data ?? []) as MotivoBloqueo[])
+    }
 
     if (espRes.error) {
       setError(espRes.error.message)
@@ -388,15 +409,21 @@ function Jornadas() {
    * El motivo no es un detalle: es lo que la jefatura le dirá al paciente por
    * teléfono, y queda escrito en el bloque como rastro. Por eso el RPC lo exige
    * y devuelve la lista de pacientes a los que hay que llamar.
+   *
+   * El motivo va como CATALOGO, no como texto libre. Eso no es purismo: el tipo
+   * (planificado u sobrevenido) decide si el sistema rechaza el bloqueo cuando
+   * dejaría el centro sin ningún profesional, y más adelante es lo que RRHH
+   * necesita para licenses, libres y vacaciones.
    */
-  async function bloquearHoras(ids: number[], motivo: string) {
+  async function bloquearHoras(ids: number[], idMotivo: number, detalle: string) {
     setError(null)
     setSuccess(null)
     setBloqueando(true)
 
     const { data, error } = await supabase.rpc('fn_bloquear_horarios', {
       p_ids: ids,
-      p_motivo: motivo,
+      p_id_motivo: idMotivo,
+      p_detalle: detalle || null,
     })
 
     setBloqueando(false)
@@ -409,11 +436,13 @@ function Jornadas() {
       horas_bloqueadas: number
       citas_canceladas: number
       citas_afectadas: { id_cita: number; id_paciente: number; fecha: string }[]
+      franjas_sin_cobertura?: string[]
     } | null
 
     const horas = res?.horas_bloqueadas ?? 0
     const canceladas = res?.citas_canceladas ?? 0
     const afectados = res?.citas_afectadas ?? []
+    const sinCobertura = res?.franjas_sin_cobertura ?? []
 
     const partes: string[] = [
       `Se deshabilitaron ${horas} hora${horas === 1 ? '' : 's'}.`,
@@ -423,6 +452,17 @@ function Jornadas() {
         `Se cancelaron ${canceladas} cita${canceladas === 1 ? '' : 's'} ya tomadas.`,
       )
     }
+
+    // Aviso de cobertura: el bloqueo se aplico igual (era una ausencia
+    // sobrevenida y no habia otra alternativa), pero la jefatura tiene que
+    // saber que quedo una franja sin nadie. Si no se dice, el centro descubre
+    // el hueco cuando llega el paciente.
+    if (sinCobertura.length > 0) {
+      setSuccess(partes.join(' '))
+      setAvisoCobertura(sinCobertura)
+      return
+    }
+
     setSuccess(partes.join(' '))
 
     if (afectados.length > 0) {
@@ -1208,31 +1248,79 @@ function Jornadas() {
               </ul>
               <div className="dash-field">
                 <label htmlFor="motivo-bloqueo">Motivo</label>
-                <textarea
+                <select
                   id="motivo-bloqueo"
-                  rows={3}
-                  value={motivoBloqueo}
-                  onChange={(e) => setMotivoBloqueo(e.target.value)}
-                  placeholder="Ausencia sobrevenida, llegada tarde, vacaciones, libre administrativo…"
+                  value={idMotivoBloqueo}
+                  onChange={(e) => setIdMotivoBloqueo(Number(e.target.value))}
+                  disabled={bloqueando}
                   autoFocus
-                />
+                >
+                  <option value={0}>Selecciona un motivo…</option>
+                  <optgroup label="Se sabía de antemano">
+                    {motivosBloqueo
+                      .filter((m) => m.tipo === 'planificado')
+                      .map((m) => (
+                        <option key={m.id_motivo} value={m.id_motivo}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Ocurrió sin aviso">
+                    {motivosBloqueo
+                      .filter((m) => m.tipo === 'sobrevenido')
+                      .map((m) => (
+                        <option key={m.id_motivo} value={m.id_motivo}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
                 <p className="dash-field-hint">
-                  Es lo que la jefatura le dirá al paciente por teléfono, y queda
-                  como registro. No es opcional.
+                  {motivoElegido?.tipo === 'planificado' ? (
+                    <>
+                      Al ser <strong>planificado</strong>, el sistema no te va a
+                      dejar dejar el centro sin ningún profesional en una franja.
+                      Si es una ausencia que se produjo hoy, elige la segunda
+                      sección.
+                    </>
+                  ) : (
+                    <>
+                      Es lo que la jefatura le dirá al paciente por teléfono, y
+                      queda como registro. Si es una ausencia sobrevenida, el
+                      bloqueo se aplica aunque quede una franja sin cobertura, y
+                      te avisamos cuál.
+                    </>
+                  )}
                 </p>
               </div>
+              {motivoElegido?.requiere_detalle ? (
+                <div className="dash-field">
+                  <label htmlFor="detalle-bloqueo">Detalle (obligatorio)</label>
+                  <textarea
+                    id="detalle-bloqueo"
+                    rows={2}
+                    value={detalleBloqueo}
+                    onChange={(e) => setDetalleBloqueo(e.target.value)}
+                    placeholder="Por ejemplo: licencia médica desde el 2026-10-02"
+                  />
+                </div>
+              ) : null}
               <div className="dash-form-actions">
                 <button
                   type="button"
                   className="dash-btn-primary"
-                  disabled={bloqueando || motivoBloqueo.trim() === ''}
+                  disabled={
+                    bloqueando ||
+                    idMotivoBloqueo === 0 ||
+                    (motivoElegido?.requiere_detalle && detalleBloqueo.trim() === '')
+                  }
                   onClick={() => {
                     const ids = modalBloqueo.map((h) => h.id_horario)
-                    const motivo = motivoBloqueo.trim()
                     setModalBloqueo(null)
-                    setMotivoBloqueo('')
+                    setIdMotivoBloqueo(0)
+                    setDetalleBloqueo('')
                     setSeleccionBloqueo([])
-                    void bloquearHoras(ids, motivo)
+                    void bloquearHoras(ids, idMotivoBloqueo, detalleBloqueo.trim())
                   }}
                 >
                   {bloqueando ? 'Deshabilitando…' : 'Deshabilitar'}
@@ -1243,7 +1331,8 @@ function Jornadas() {
                   disabled={bloqueando}
                   onClick={() => {
                     setModalBloqueo(null)
-                    setMotivoBloqueo('')
+                    setIdMotivoBloqueo(0)
+                    setDetalleBloqueo('')
                   }}
                 >
                   Cancelar
@@ -1274,6 +1363,41 @@ function Jornadas() {
                   type="button"
                   className="dash-btn-primary"
                   onClick={() => setAvisoLlamar(null)}
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {avisoCobertura ? (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal">
+              <h3>Quedó una franja sin ningún profesional</h3>
+              <p>
+                Las horas quedaron deshabilitadas igual, porque una ausencia
+                sobrevenida no se puede deshacer. Pero{' '}
+                <strong>no queda ningún profesional con horario</strong> en:
+              </p>
+              <ul className="modal-lista">
+                {avisoCobertura.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <p className="dash-muted">
+                Si el centro puede, conviene reconfigurar esos horarios antes de
+                que llegue el paciente. Un motivo <strong>planificado</strong>{' '}
+                nunca deja pasar esta situación: el sistema lo rechaza.
+              </p>
+              <div className="dash-form-actions">
+                <button
+                  type="button"
+                  className="dash-btn-primary"
+                  onClick={() => {
+                    setAvisoCobertura(null)
+                    void loadData()
+                  }}
                 >
                   Entendido
                 </button>

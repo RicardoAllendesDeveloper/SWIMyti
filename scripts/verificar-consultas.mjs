@@ -65,7 +65,12 @@ const FIRMAS_RPC = {
     'p_direccion', 'p_fecha_nacimiento', 'p_sexo', 'p_prevision',
   ],
   fn_crear_usuario: ['p_email', 'p_password', 'p_nombres', 'p_apellidos', 'p_id_rol', 'p_rut'],
-  fn_bloquear_horarios: ['p_ids', 'p_motivo'],
+  // Firma cambiada el 2026-10-01: el motivo paso de texto libre a catalogo
+  // estructurado (planificado / sobrevenido), que es lo que permite decidir si
+  // la falta de cobertura se rechaza o solo se advierte, y lo que despues
+  // necesita RRHH para licencias, libres y vacaciones.
+  fn_bloquear_horarios: ['p_ids', 'p_id_motivo', 'p_detalle'],
+  fn_cobertura_no_atendida: ['p_ids'],
   fn_eliminar_bloques_jornada: ['p_fecha', 'p_id_especialidad', 'p_id_profesional'],
   fn_generar_bloques_jornada: [
     'p_id_profesional', 'p_id_especialidad', 'p_fecha_inicio', 'p_fecha_fin',
