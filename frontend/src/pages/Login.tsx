@@ -5,19 +5,37 @@ import { useAuthRol, type RolUsuario } from '../context/AuthRolContext'
 import { homeRol } from '../utils/permisos'
 import '../styles/Login.css'
 
-function mapAuthError(message: string): string {
+type AuthLikeError = { message: string; status?: number; code?: string }
+
+function mapAuthError(err: AuthLikeError): string {
+  const message = err.message || ''
   const normalized = message.toLowerCase()
+  const code = (err.code || '').toLowerCase()
+
+  // El status y el code son señales fiables; el texto varies entre versiones de
+  // GoTrue, asi que se miran los dos. El 429 va primero porque durante una ronda
+  // de pruebas se agotan los intentos del endpoint de password y antes se
+  // reportaba como si la contraseña estuviera mala.
+  if (
+    err.status === 429 ||
+    code.includes('rate_limit') ||
+    code.includes('over_request') ||
+    normalized.includes('too many requests') ||
+    normalized.includes('rate limit') ||
+    normalized.includes('security purposes')
+  ) {
+    return 'Demasiados intentos desde esta conexión. Espera un minuto antes de reintentar.'
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'El email no está confirmado. Revisa tu correo o pide al administrador que lo active.'
+  }
 
   if (
     normalized.includes('invalid login credentials') ||
-    normalized.includes('invalid_credentials') ||
-    normalized.includes('email not confirmed')
+    normalized.includes('invalid_credentials')
   ) {
     return 'Credenciales incorrectas. Verifica tu email y contraseña.'
-  }
-
-  if (normalized.includes('too many requests') || normalized.includes('rate limit')) {
-    return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.'
   }
 
   if (
@@ -60,7 +78,7 @@ function Login() {
       .then(({ data, error: sessionError }) => {
         if (!active) return
         if (sessionError) {
-          setError(mapAuthError(sessionError.message))
+          setError(mapAuthError(sessionError))
           setHasSession(false)
         } else {
           setHasSession(Boolean(data.session))
@@ -102,7 +120,12 @@ function Login() {
       })
 
       if (signInError) {
-        setError(mapAuthError(signInError.message))
+        console.error('[login] fallo de autenticacion', {
+          status: signInError.status,
+          code: signInError.code,
+          message: signInError.message,
+        })
+        setError(mapAuthError(signInError))
         return
       }
 
