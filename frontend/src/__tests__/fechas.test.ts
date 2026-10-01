@@ -19,26 +19,48 @@ describe('rangoUtcDeDia', () => {
     expect(claveDia(new Date(new Date(hasta).getTime() - 1))).toBe(clave)
   }
 
+  /** Horas reales que dura el día, que en el cambio de horario no son 24. */
+  const duracionHoras = (clave: string) => {
+    const { desde, hasta } = rangoUtcDeDia(clave)
+    return (new Date(hasta).getTime() - new Date(desde).getTime()) / 3_600_000
+  }
+
   it('cubre el día pedido en horario de invierno (UTC-3)', () => {
     cubreDiaPedido('2026-06-15')
   })
 
-  it('cubre el día pedido en horario de verano (UTC-4)', () => {
+  it('cubre el día pedido en horario de invierno (UTC-4)', () => {
+    cubreDiaPedido('2026-07-15')
+  })
+
+  it('cubre el día pedido en horario de verano (UTC-3)', () => {
+    // Verano chileno = UTC-3. Es la estación en la que estamos hoy.
     cubreDiaPedido('2026-01-15')
   })
 
   it('cubre el día en que Chile entra en horario de verano', () => {
-    // 2026-09-06: Chile pasa de UTC-4 a UTC-3. Ese día dura 23 horas.
+    // 2026-09-06: Chile pasa de UTC-4 a UTC-3. El reloj salta de 23:00 a 01:00,
+    // así que ESE día tiene 23 horas y su medianoche local no existe.
     cubreDiaPedido('2026-09-06')
+    expect(duracionHoras('2026-09-06')).toBe(23)
   })
 
   it('cubre el día en que Chile sale del horario de verano', () => {
-    // 2026-04-05: Chile pasa de UTC-3 a UTC-4. Ese día dura 25 horas.
-    cubreDiaPedido('2026-04-05')
+    // 2026-04-04: Chile pasa de UTC-3 a UTC-4, el reloj retrocede una hora y ese
+    // día tiene 25. Ojo con esto: el día de 25 horas es el ANTERIOR al cambio,
+    // que es donde cae el retroceso de las 24:00, no el siguiente.
+    cubreDiaPedido('2026-04-04')
+    expect(duracionHoras('2026-04-04')).toBe(25)
+  })
+
+  it('un día normal dura 24 horas en ambas estaciones', () => {
+    // El desfase cambia con la estación; la duración del día, no.
+    expect(duracionHoras('2026-07-15')).toBe(24)
+    expect(duracionHoras('2026-01-15')).toBe(24)
   })
 
   it('devuelve un rango contiguo y sin huecos entre días seguidos', () => {
-    for (const clave of ['2026-09-05', '2026-09-06', '2026-04-04', '2026-04-05']) {
+    for (const clave of ['2026-09-05', '2026-09-06', '2026-04-03', '2026-04-04']) {
       const { hasta } = rangoUtcDeDia(clave)
       const siguiente = rangoUtcDeDia(desplazarDia(clave, 1))
       expect(hasta).toBe(siguiente.desde)
