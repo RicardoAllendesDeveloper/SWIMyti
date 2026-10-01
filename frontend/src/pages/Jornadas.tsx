@@ -491,6 +491,19 @@ function Jornadas() {
     return horarios.filter((h) => seleccionBloqueo.includes(h.id_horario) && puedeBloquear(h))
   }
 
+  /** Horas de una jornada que se pueden seleccionar (futuras y no completadas). */
+  function seleccionablesDe(g: GrupoJornada): HorarioDisponible[] {
+    return g.bloques.filter((b) => puedeBloquear(b))
+  }
+
+  function alternarJornada(g: GrupoJornada) {
+    const ids = seleccionablesDe(g).map((b) => b.id_horario)
+    const todasSel = ids.length > 0 && ids.every((id) => seleccionBloqueo.includes(id))
+    setSeleccionBloqueo((prev) =>
+      todasSel ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])],
+    )
+  }
+
   // Agrupar los bloques por día + especialidad + profesional (jornada)
   type GrupoJornada = {
     fecha: string
@@ -804,7 +817,12 @@ function Jornadas() {
                 <div className="dash-card-header">
                   <div>
                     <h3>Bloques publicados</h3>
-                    <p className="dash-muted">Disponibilidad agrupada por jornada (día)</p>
+                       <p className="dash-muted">
+                         Disponibilidad agrupada por jornada (día). Para deshabilitar horas{' '}
+                         <strong>marca las horas</strong> o usa{' '}
+                         <strong>«Toda la jornada»</strong>: te pedirá el motivo y avisará a los
+                         pacientes con cita.
+                       </p>
                   </div>
                   <span className="dash-badge">{gruposJornada.length} jornadas</span>
                 </div>
@@ -872,7 +890,23 @@ function Jornadas() {
                                     {g.especialidad} · {g.profesional}
                                   </span>
                                 </div>
-                                <span className={`jornada-estado ${est.cls}`}>{est.label}</span>
+                                <div className="jornada-header-derecha">
+                                  <label className="jornada-todas">
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        seleccionablesDe(g).length > 0 &&
+                                        seleccionablesDe(g).every((b) =>
+                                          seleccionBloqueo.includes(b.id_horario),
+                                        )
+                                      }
+                                      onChange={() => alternarJornada(g)}
+                                      disabled={bloqueando || seleccionablesDe(g).length === 0}
+                                    />
+                                    Toda la jornada
+                                  </label>
+                                  <span className={`jornada-estado ${est.cls}`}>{est.label}</span>
+                                </div>
                               </div>
                               <div className="jornada-resumen">
                                 {disponibles > 0 ? (
@@ -888,21 +922,30 @@ function Jornadas() {
                                 <span className="jornada-count">{g.bloques.length} en total</span>
                               </div>
                               <div className="jornada-horas">
-                                {horas.map((h) => (
-                                  <span
-                                    key={h.id_horario}
-                                    className={`jornada-hora${h.estado === 'disponible' ? ' is-disponible' : h.estado === 'reservada' ? ' is-reservada' : ' is-no'}${
-                                      seleccionBloqueo.includes(h.id_horario)
-                                        ? ' is-selected'
-                                        : ''
-                                    }${h.estado === 'bloqueada' ? ' is-bloqueada' : ''}`}
-                                    title={
-                                      h.estado === 'bloqueada' && h.motivo_bloqueo
-                                        ? `Bloqueada: ${h.motivo_bloqueo}`
-                                        : ESTADO_LABEL[h.estado] ?? h.estado
-                                    }
-                                  >
-                                    {puedeBloquear(h) || puedeReactivar(h) ? (
+                                {horas.map((h) => {
+                                  const seleccionable = puedeBloquear(h) || puedeReactivar(h)
+                                  const clases = `jornada-hora${h.estado === 'disponible' ? ' is-disponible' : h.estado === 'reservada' ? ' is-reservada' : ' is-no'}${
+                                    seleccionBloqueo.includes(h.id_horario) ? ' is-selected' : ''
+                                  }${h.estado === 'bloqueada' ? ' is-bloqueada' : ''}`
+                                  const titulo =
+                                    h.estado === 'bloqueada' && h.motivo_bloqueo
+                                      ? `Deshabilitada: ${h.motivo_bloqueo}`
+                                      : ESTADO_LABEL[h.estado] ?? h.estado
+
+                                  // El label es lo que hace clicable toda la hora,
+                                  // no solo el checkbox: pedirle al usuario que
+                                  // encuentre un checkbox de 10px para
+                                  // deshabilitar un bloque entero era pedirle
+                                  // que adivinara.
+                                  if (!seleccionable) {
+                                    return (
+                                      <span key={h.id_horario} className={clases} title={titulo}>
+                                        {formatHoraMin(h.fecha_inicio)}
+                                      </span>
+                                    )
+                                  }
+                                  return (
+                                    <label key={h.id_horario} className={clases} title={titulo}>
                                       <input
                                         type="checkbox"
                                         className="jornada-hora-check"
@@ -911,12 +954,26 @@ function Jornadas() {
                                         disabled={bloqueando}
                                         aria-label={`Seleccionar hora de ${formatHoraMin(h.fecha_inicio)}`}
                                       />
-                                    ) : null}
-                                    {formatHoraMin(h.fecha_inicio)}
-                                  </span>
-                                ))}
+                                      {formatHoraMin(h.fecha_inicio)}
+                                    </label>
+                                  )
+                                })}
                               </div>
                               <div className="jornada-acciones">
+                                {seleccionablesDe(g).length > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="dash-btn-secondary jornada-bloquear-jornada"
+                                    onClick={() => {
+                                      const ids = seleccionablesDe(g).map((b) => b.id_horario)
+                                      setSeleccionBloqueo(ids)
+                                      setModalBloqueo(seleccionablesDe(g))
+                                    }}
+                                    disabled={bloqueando}
+                                  >
+                                    Deshabilitar jornada ({seleccionablesDe(g).length})
+                                  </button>
+                                ) : null}
                                 {seleccionadosBloqueo().length > 0 ? (
                                   <button
                                     type="button"

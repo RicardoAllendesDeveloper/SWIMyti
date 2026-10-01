@@ -129,6 +129,28 @@
   flex-wrap: wrap;
 }
 
+.jornada-header-derecha {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.jornada-todas {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+
+.jornada-todas:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .jornada-header strong {
   display: block;
   font-size: 0.95rem;
@@ -220,6 +242,12 @@
   background: #f8fafc;
   color: #64748b;
   cursor: pointer;
+}
+
+/* Horas ya pasadas o completadas: no son seleccionables, así que no deben
+   insinuar que lo son. */
+span.jornada-hora {
+  cursor: default;
 }
 
 .jornada-hora.is-disponible {
