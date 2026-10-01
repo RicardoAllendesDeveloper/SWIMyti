@@ -132,6 +132,56 @@ where n.nspname = 'public'
 order by t.tgrelid::regclass::text, t.tgname;
 
 \echo ''
-\echo '=== FIN. Ningun bloque debe marcar REVISAR ni devolver filas en 1, 5, 6 u 8. ==='
-\echo '   El 2 y el 7 son listas de revision, no fallas. ==='
+\echo '=== 9. El enum y los checks no pueden desincronizarse ==='
+\echo '--- Si se agrega un valor a estado_cita, los checks que ENUMERAN los'
+\echo '--- valores permitidos no se actualizan solos. Eso ya paso: al agregar'
+\echo '--- bloqueada, fn_bloquear_horarios reventaba con 23514 y el bloqueo de'
+\echo '--- horas era imposible. Esta consulta debe dar 5 filas, todas en true:'
+\echo '--- cada valor del enum tiene que estar en el check de horarios_disponibles. ---'
+select e.enumlabel as valor_del_enum,
+       position(e.enumlabel::text in pg_get_constraintdef(chk.oid)) > 0 as esta_en_el_check
+from pg_type t
+join pg_enum e on t.oid = e.enumtypid
+cross join (
+  -- El alias no puede ser 'con': el parser lo choca con el nombre de la
+  -- funcion consultada y falla con "missing FROM-clause entry".
+  select cc.oid as oid
+  from pg_constraint cc
+  where cc.conname = 'horarios_estado_check'
+    and cc.conrelid = 'public.horarios_disponibles'::regclass
+) chk
+where t.typname = 'estado_cita'
+order by e.enumsortorder;
+
+\echo ''
+\echo '=== 10. La hora deshabilitada no se puede resucitar ==='
+\echo '--- El motivo de esta suite: al cancelar la cita, fn_liberar_horario'
+\echo '--- devolvia el bloque a disponible. Con eso, bloquear por ausencia y'
+\echo '--- cancelar la cita era igual que no hacer nada, y el paciente podia'
+\echo '--- volver a tomar la hora que la jefatura acababa de cerrar.'
+\echo '--- Comprueba que el trigger tenga la guarda. ---'
+select
+  (pg_get_functiondef(p.oid) ilike '%estado is distinct from%bloqueada%') as trigger_tiene_guarda,
+  (p.prosecdef) as es_security_definer
+from pg_proc p
+where p.proname = 'fn_liberar_horario';
+
+\echo ''
+\echo '=== 11. Superficie de los RPC de bloqueo de horas (debe salir solo authenticated) ==='
+\echo '--- El EXECUTE por defecto viene del privilegio PUBLIC, y este entorno'
+\echo '--- ademas deja un grant explicito a anon en las funciones nuevas.'
+\echo '--- Cualquier rol fuera de authenticated + service_role se revisa. ---'
+select p.proname,
+       r.rolname as rol_con_permiso,
+       has_function_privilege(r.oid, p.oid, 'execute') as puede_ejecutar
+from pg_proc p
+cross join (select oid, rolname from pg_roles where rolname in ('anon', 'authenticated')) r
+where p.proname in ('fn_bloquear_horarios', 'fn_reactivar_horarios')
+  and has_function_privilege(r.oid, p.oid, 'execute')
+order by p.proname, r.rolname;
+
+\echo ''
+\echo '=== FIN. Ningun bloque debe marcar REVISAR ni devolver filas en 1, 5, 6, 8, 9 ni 11. ==='
+\echo '   El 2 y el 7 son listas de revision, no fallas. El 9 y el 10 son checks'
+\echo '   que deben dar todos true / ninguna fila. ==='
 \echo ''

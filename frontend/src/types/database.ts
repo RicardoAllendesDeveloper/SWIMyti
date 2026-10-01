@@ -58,7 +58,15 @@ export type HorarioDisponible = {
   id_especialidad?: number | null
   fecha_inicio: string
   fecha_fin: string
-  estado: 'disponible' | 'reservada' | 'cancelada' | 'completada'
+  /**
+   * `bloqueada` es el estado que la jefatura deja una hora cuando el
+   * profesional no attends. No es un estado de cita: una cita apoyada en una
+   * hora bloqueada pasa a `cancelada`. Ver migración 20261001150100.
+   */
+  estado: 'disponible' | 'reservada' | 'cancelada' | 'completada' | 'bloqueada'
+  motivo_bloqueo?: string | null
+  bloqueado_por?: string | null
+  bloqueado_at?: string | null
   created_at?: string
   usuarios?: UsuarioResumen | null
   especialidades?: Pick<Especialidad, 'nombre'> | Pick<Especialidad, 'nombre'>[] | null
@@ -70,6 +78,8 @@ export type Cita = {
   id_paciente: number
   motivo?: string | null
   estado: 'disponible' | 'reservada' | 'cancelada' | 'completada'
+  /** Lo llena el bloqueo de horas de la jefatura; la liberación del paciente lo deja nulo. */
+  motivo_cancelacion?: string | null
   llegada?: 'pendiente' | 'en_sala' | 'no_llego' | 'tarde'
   created_at?: string
   horarios_disponibles?: {

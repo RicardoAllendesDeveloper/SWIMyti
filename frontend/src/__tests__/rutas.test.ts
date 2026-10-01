@@ -50,7 +50,8 @@ const RUTA_A_MODULO: Record<string, Modulo> = {
   '/expediente/:idPaciente': 'fichas',
   '/paciente-apoyo/:idPaciente': 'pacientes',
   '/usuarios': 'usuarios',
-  '/disponibilidad': 'disponibilidad',
+  '/agenda': 'agenda',
+  '/jornadas': 'jornadas',
   '/calculos': 'calculos',
   '/rem': 'rem',
   '/bandeja-ordenes': 'bandeja_ordenes',
@@ -102,6 +103,21 @@ describe('guardas de ruta de App.tsx', () => {
       }
     }
     expect(fallas, `\n${fallas.join('\n')}`).toEqual([])
+  })
+
+  /**
+   * El camino inverso: el modulo existe pero ningun rol lo tiene. O el
+   * sidebar lo ofrece y siempre cae en "sin permisos". Se manifesto al partir
+   * Agenda/Gestion de horas/Jornadas en tres modulos.
+   */
+  it('toda ruta declarada tiene al menos un rol en el mapa de modulos', () => {
+    const huerfanas: string[] = []
+    for (const ruta of rutas) {
+      const modulo = RUTA_A_MODULO[ruta.path]
+      const alguno = Object.values(MODULOS_POR_ROL).some((mods) => mods.includes(modulo))
+      if (!alguno) huerfanas.push(`${ruta.path} (${modulo})`)
+    }
+    expect(huerfanas, `rutas que ningun rol puede usar: ${huerfanas.join(', ')}`).toEqual([])
   })
 
   it('toda ruta tiene al menos un rol autorizado', () => {
@@ -173,8 +189,8 @@ describe('ITEMS del sidebar', () => {
   })
 
   it('la ruta de cada item es la de su modulo', () => {
-    // El menu y la app pueden desincronizarse: /disponibilidad se muestra
-    // como "Agenda", /ficha vive en /dashboard.
+    // El menu y la app pueden desincronizarse: /agenda se muestra como "Mi
+    // agenda", /ficha vive en /dashboard.
     for (const i of items) {
       const rutas = rutasDelModulo(i.modulo as Modulo)
       expect(rutas, `el item ${i.modulo} apunta a ${i.ruta}, que no esta en RUTA_A_MODULO`).toContain(

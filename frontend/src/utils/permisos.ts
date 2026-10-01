@@ -42,14 +42,19 @@ export function puedeGestionarUsuarios(rol: RolUsuario): boolean {
   return rol === 'administrador'
 }
 
-/** Roles que pueden reservar/cancelar citas (paciente sobre su cuenta; admin/administrativo gestionan) */
+/**
+ * Roles que TOMAN horas (crean una cita reservando un bloque). Decisión del
+ * usuario 2026-10-01: solo administrativo y paciente. La jefatura coordina
+ * desde `/jornadas` y el administrador administra el centro: ninguno de los
+ * dos reserva.
+ */
 export function puedeReservar(rol: RolUsuario): boolean {
-  return rol === 'paciente' || rol === 'administrador' || rol === 'administrativo'
+  return rol === 'paciente' || rol === 'administrativo'
 }
 
-/** Roles que pueden gestionar citas de todos los pacientes (administrativo/admin) */
+/** Roles que gestionan las citas de todos los pacientes (solo administrativo). */
 export function puedeGestionarCitas(rol: RolUsuario): boolean {
-  return rol === 'administrador' || rol === 'administrativo'
+  return rol === 'administrativo'
 }
 
 /** Roles que pueden solicitar interconsultas (enfermería/administrativo/admin) */
@@ -85,8 +90,12 @@ export type Modulo =
   | 'fichas'
   | 'pacientes'
   | 'enmiendas'
-  | 'disponibilidad'
+  /** Agenda propia: solo los bloques y citas del propio profesional. */
+  | 'agenda'
+  /** Tomar horas (paciente y administrativo). */
   | 'citas'
+  /** Coordinar el área: bloques y citas del área (jefatura y administrador). */
+  | 'jornadas'
   | 'usuarios'
   | 'portal'
   | 'interconsultas'
@@ -101,12 +110,18 @@ export type Modulo =
 /**
  * Módulos visibles por rol. Controla la navegación (sidebar) y las rutas.
  * Los roles ven únicamente lo que les corresponde según el modelo de gestión.
+ *
+ * `agenda`, `citas` y `jornadas` son TRES módulos distintos y confundirlos fue
+ * el origen de meses de malentendidos (ver AGENTS.md, "Definición funcional"):
+ *  - agenda   → mi propia agenda (doctor, enfermería, jefatura)
+ *  - citas    → tomar horas (administrativo, paciente)
+ *  - jornadas → coordinar el área (jefatura, administrador)
  */
 export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
+  // No tiene `agenda`: no realiza atenciones. No tiene `citas`: no toma horas.
   administrador: [
     'pacientes',
-    'disponibilidad',
-    'citas',
+    'jornadas',
     'interconsultas',
     'bonos',
     'finanzas',
@@ -114,17 +129,19 @@ export const MODULOS_POR_ROL: Record<NonNullable<RolUsuario>, Modulo[]> = {
     'config_recinto',
     'rem',
   ],
-  doctor: ['fichas', 'disponibilidad', 'interconsultas', 'recetas', 'calculos'],
-  enfermeria: ['fichas', 'disponibilidad', 'interconsultas', 'calculos'],
-  administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos', 'finanzas'],
+  doctor: ['fichas', 'agenda', 'interconsultas', 'recetas', 'calculos'],
+  enfermeria: ['fichas', 'agenda', 'interconsultas', 'calculos'],
+  // Sin `finanzas`: es el equivalente al REM y le corresponde a la jefatura
+  // del área, que por ahora es el Administrador.
+  administrativo: ['pacientes', 'citas', 'interconsultas', 'bonos'],
   /**
-   * Jefatura sin rol clínico asociado: coordina agenda y datos de pacientes.
-   * Una jefatura de enfermería o medicina además hereda los módulos de su
-   * rol clínico, porque la navegación usa la unión de todos sus roles.
-   * `rem` es el Resumen Estadístico Mensual: informe de jefatura, no un
-   * documento de enfermería como estaba antes mal clasificado.
+   * Jefatura sin rol clínico asociado: coordina el área y los datos de
+   * pacientes. No pide horas para sí misma: su módulo de bloques es
+   * `jornadas`. Si además es enfermería o medicina, hereda `agenda` y `fichas`
+   * de su rol clínico, porque la navegación usa la unión de todos sus roles.
+   * `rem` es el Resumen Estadístico Mensual: informe de jefatura.
    */
-  jefatura: ['pacientes', 'disponibilidad', 'citas', 'interconsultas', 'rem'],
+  jefatura: ['pacientes', 'jornadas', 'interconsultas', 'rem'],
   unidad_apoyo: ['pacientes', 'bandeja_ordenes'],
   paciente: ['portal', 'citas', 'interconsultas'],
 }
@@ -212,8 +229,9 @@ export function homeRol(rol: RolUsuario): string {
     case 'administrador':
       return '/usuarios'
     case 'jefatura':
-      // Su módulo propio es la agenda que coordina.
-      return '/disponibilidad'
+      // Su módulo propio es la coordinación del área. Si además es clínica,
+      // la unión de roles le habilita `agenda` para su propia carga horaria.
+      return '/jornadas'
     default:
       // doctor, enfermeria -> fichas clínicas
       return '/dashboard'

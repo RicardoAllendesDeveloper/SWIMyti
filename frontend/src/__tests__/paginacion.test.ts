@@ -94,7 +94,7 @@ describe('traerEnTrozos', () => {
  * Si alguien vuelve a poner un tope fijo, el test cae.
  */
 describe('pantallas de agenda sin recorte silencioso', () => {
-  const paginas = ['Disponibilidad.tsx', 'Citas.tsx', 'Portal.tsx']
+  const paginas = ['Agenda.tsx', 'Jornadas.tsx', 'Citas.tsx', 'Portal.tsx']
 
   for (const pagina of paginas) {
     it(`${pagina} no recorta la carga con un limite fijo`, () => {

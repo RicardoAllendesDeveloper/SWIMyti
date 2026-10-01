@@ -5,7 +5,8 @@ import Bonos from './pages/Bonos'
 import Citas from './pages/Citas'
 import Dashboard from './pages/Dashboard'
 import DetalleFicha from './pages/DetalleFicha'
-import Disponibilidad from './pages/Disponibilidad'
+import Agenda from './pages/Agenda'
+import Jornadas from './pages/Jornadas'
 import Expediente from './pages/Expediente'
 import Calculos from './pages/Calculos'
 import Rem from './pages/Rem'
@@ -83,13 +84,21 @@ function App() {
           }
         />
         <Route
-          path="/disponibilidad"
+          path="/agenda"
           element={
             <ProtectedRoute>
-              <RoleRoute
-                roles={['administrador', 'doctor', 'enfermeria', 'jefatura']}
-              >
-                <Disponibilidad />
+              <RoleRoute roles={['doctor', 'enfermeria', 'jefatura']}>
+                <Agenda />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/jornadas"
+          element={
+            <ProtectedRoute>
+              <RoleRoute roles={['jefatura', 'administrador']}>
+                <Jornadas />
               </RoleRoute>
             </ProtectedRoute>
           }
@@ -148,9 +157,7 @@ function App() {
           path="/citas"
           element={
             <ProtectedRoute>
-              <RoleRoute
-                roles={['administrador', 'administrativo', 'paciente', 'jefatura']}
-              >
+              <RoleRoute roles={['administrativo', 'paciente']}>
                 <Citas />
               </RoleRoute>
             </ProtectedRoute>

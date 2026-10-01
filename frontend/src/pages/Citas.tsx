@@ -206,8 +206,43 @@ function Citas() {
     void cargarHorarios()
   }, [cargarHorarios])
 
+  function nombreEspecialidad(id: number): string {
+    return especialidades.find((e) => e.id_especialidad === id)?.nombre ?? '—'
+  }
+
+  function nombreProfesional(id: string): string {
+    return profesionales.find((p) => p.id_usuario === id)?.nombre ?? 'Profesional'
+  }
+
+  /**
+   * Criterios obligatorios para tomar una hora. La especialidad y el
+   * profesional se derivan del bloque, pero el bloque elegido tiene que
+   * concordar con lo que el usuario selecciono: sin eso se podia reservar a
+   * ciegas con los filtros en "todas". Ver AGENTS.md, Fase 1 punto 3.
+   */
+  function validarReserva(): string | null {
+    if (!especialidadFiltro) {
+      return 'Selecciona una especialidad. Toda cita debe quedar asociada a una especialidad y a un profesional disponible.'
+    }
+    if (gestiona && !idPacienteGestion) {
+      return 'Selecciona el paciente para reservar en su nombre.'
+    }
+    return null
+  }
+
   async function reservar(idHorario: number) {
-    const confirmado = window.confirm('¿Desea reservar esta hora?')
+    const errorValidacion = validarReserva()
+    if (errorValidacion) {
+      setError(errorValidacion)
+      return
+    }
+
+    const bloque = horarios.find((h) => h.id_horario === idHorario)
+    const confirmado = window.confirm(
+      `¿Deseas reservar esta hora?\n\n` +
+        `Especialidad: ${especialidadFiltro ? nombreEspecialidad(Number(especialidadFiltro)) : '—'}\n` +
+        `Profesional: ${profesionalFiltro ? nombreProfesional(profesionalFiltro) : 'el disponible en ese horario'}`,
+    )
     if (!confirmado) return
 
     setError(null)
@@ -227,14 +262,10 @@ function Citas() {
       let idPacienteFinal: number | null = null
 
       if (gestiona) {
-        // Admin/administrativo: reservan en nombre de un paciente seleccionado
-        if (!idPacienteGestion) {
-          setError('Selecciona un paciente para reservar en su nombre.')
-          return
-        }
+        // Administrativo: reserva en nombre de un paciente seleccionado.
         idPacienteFinal = Number(idPacienteGestion)
       } else {
-        // Paciente: usa su perfil vinculado
+        // Paciente: usa su perfil vinculado.
         const { data: pac, error: pacError } = await supabase
           .from('pacientes')
           .select('id_paciente')
@@ -248,6 +279,36 @@ function Citas() {
           return
         }
         idPacienteFinal = pac.id_paciente
+      }
+
+      /**
+       * Toda cita debe llevar paciente + especialidad + profesional. La
+       * especialidad y el profesional se derivan del bloque reservado, asi que
+       * lo que se valida aca es que el bloque los tenga: un bloque sin
+       * `id_especialidad` no es reservable (ver AGENTS.md, Fase 1 punto 3).
+       * Antes se permitia reservar a ciegas con los filtros en "todas".
+       */
+      if (!bloque) {
+        setError('El horario seleccionado ya no está en la lista. Elige otro.')
+        return
+      }
+      if (!bloque.id_especialidad) {
+        setError(
+          'Esa hora no tiene especialidad asignada, así que no se puede reservar. Avisa a la jefatura del área.',
+        )
+        return
+      }
+      if (!bloque.id_profesional) {
+        setError('Esa hora no tiene profesional asignado, así que no se puede reservar.')
+        return
+      }
+      if (especialidadFiltro && Number(especialidadFiltro) !== bloque.id_especialidad) {
+        setError('Ese horario no corresponde a la especialidad elegida. Elige otro.')
+        return
+      }
+      if (profesionalFiltro && profesionalFiltro !== bloque.id_profesional) {
+        setError('Ese horario no corresponde al profesional elegido. Elige otro.')
+        return
       }
 
       const { error: insertError } = await supabase.from('citas').insert({
@@ -428,6 +489,18 @@ function Citas() {
                 </select>
               ) : null}
             </div>
+
+            {!especialidadFiltro ? (
+              <p className="citas-requisito">
+                Para reservar elige primero una <strong>especialidad</strong>. Toda cita
+                queda asociada a un paciente, a una especialidad y a un profesional
+                disponible.
+              </p>
+            ) : gestiona && !idPacienteGestion ? (
+              <p className="citas-requisito">
+                Elige el <strong>paciente</strong> para quien reservas la hora.
+              </p>
+            ) : null}
 
             {loading ? (
               <p className="dash-loading">Cargando horarios…</p>

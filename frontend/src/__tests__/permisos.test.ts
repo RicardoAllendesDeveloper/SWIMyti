@@ -21,20 +21,66 @@ describe('modulos por rol', () => {
     }
   })
 
-  it('la jefatura ve agenda, pacientes y citas, pero no fichas ni finanzas', () => {
+  it('la jefatura ve jornadas y pacientes, pero no agenda propia, fichas ni finanzas', () => {
     const modulos = MODULOS_POR_ROL.jefatura
-    expect(modulos).toContain('disponibilidad')
+    // 'jornadas' es su módulo de coordinación; no tiene 'agenda' porque su
+    // agenda propia le llega por el rol clínico acumulado (enfermería/medicina).
+    expect(modulos).toContain('jornadas')
     expect(modulos).toContain('pacientes')
-    expect(modulos).toContain('citas')
+    expect(modulos).not.toContain('agenda')
+    expect(modulos).not.toContain('citas')
     expect(modulos).not.toContain('fichas')
     expect(modulos).not.toContain('finanzas')
     expect(modulos).not.toContain('usuarios')
+  })
+
+  it('el administrador no tiene agenda propia ni toma horas', () => {
+    // No realiza atenciones: para ver los horarios del resto usa Jornadas.
+    // No toma horas: los roles que reservan son administrativo y paciente.
+    const modulos = MODULOS_POR_ROL.administrador
+    expect(modulos).toContain('jornadas')
+    expect(modulos).not.toContain('agenda')
+    expect(modulos).not.toContain('citas')
+  })
+
+  it('el administrativo pierde finanzas y conserva la toma de horas', () => {
+    // Finanzas es el equivalente al REM: le corresponde a la jefatura del área,
+    // que por ahora es el Administrador.
+    const modulos = MODULOS_POR_ROL.administrativo
+    expect(modulos).toContain('citas')
+    expect(modulos).not.toContain('finanzas')
+    expect(modulos).not.toContain('jornadas')
   })
 
   it('el administrador no pierde ningun modulo al agregar la jefatura', () => {
     for (const modulo of MODULOS_POR_ROL.jefatura) {
       expect(MODULOS_POR_ROL.administrador).toContain(modulo)
     }
+  })
+})
+
+describe('los tres modulos que se confundian', () => {
+  it('agenda, citas y jornadas son modulos distintos', () => {
+    // Ver AGENTS.md, "Definicion funcional": confundirlos fue el origen de
+    // meses de malentendidos.
+    expect(MODULOS_POR_ROL.doctor).toContain('agenda')
+    expect(MODULOS_POR_ROL.doctor).not.toContain('jornadas')
+    expect(MODULOS_POR_ROL.enfermeria).toContain('agenda')
+    expect(MODULOS_POR_ROL.enfermeria).not.toContain('citas')
+  })
+
+  it('solo administrativo y paciente toman horas', () => {
+    const toman = (Object.keys(MODULOS_POR_ROL) as RolConocido[]).filter((r) =>
+      MODULOS_POR_ROL[r].includes('citas'),
+    )
+    expect(toman.sort()).toEqual(['administrativo', 'paciente'])
+  })
+
+  it('solo jefatura y administrador coordinan el area', () => {
+    const coordinan = (Object.keys(MODULOS_POR_ROL) as RolConocido[]).filter((r) =>
+      MODULOS_POR_ROL[r].includes('jornadas'),
+    )
+    expect(coordinan.sort()).toEqual(['administrador', 'jefatura'])
   })
 })
 
@@ -47,12 +93,15 @@ describe('tieneModuloConRoles (N-roles)', () => {
   it('la jefatura RafOzada a enfermería ve la union de ambas', () => {
     const roles: RolConocido[] = ['enfermeria', 'jefatura']
 
-    // De enfermería: fichas y cálculos
+    // De enfermería: fichas, agenda propia y cálculos
     expect(tieneModuloConRoles(roles, 'fichas')).toBe(true)
     expect(tieneModuloConRoles(roles, 'calculos')).toBe(true)
-    // De jefatura: agenda y citas
-    expect(tieneModuloConRoles(roles, 'disponibilidad')).toBe(true)
-    expect(tieneModuloConRoles(roles, 'citas')).toBe(true)
+    expect(tieneModuloConRoles(roles, 'agenda')).toBe(true)
+    // De jefatura: jornadas (coordinar el área) y rem
+    expect(tieneModuloConRoles(roles, 'jornadas')).toBe(true)
+    expect(tieneModuloConRoles(roles, 'rem')).toBe(true)
+    // La jefatura no toma horas para sí misma
+    expect(tieneModuloConRoles(roles, 'citas')).toBe(false)
   })
 
   it('la jefatura sola NO habilita atencion clinica', () => {
@@ -87,8 +136,8 @@ describe('esStaff', () => {
 })
 
 describe('homeRol', () => {
-  it('la jefatura aterriza en su modulo propio', () => {
-    expect(homeRol('jefatura')).toBe('/disponibilidad')
+  it('la jefatura aterriza en jornadas', () => {
+    expect(homeRol('jefatura')).toBe('/jornadas')
   })
 
   it('los roles no clinicos no caen en fichas', () => {
@@ -115,7 +164,7 @@ describe('coherencia de modulos', () => {
       for (const m of lista) declarados.add(m)
     }
     const esperados: Modulo[] = [
-      'fichas', 'pacientes', 'enmiendas', 'disponibilidad', 'citas', 'usuarios',
+      'fichas', 'pacientes', 'enmiendas', 'agenda', 'citas', 'jornadas', 'usuarios',
       'portal', 'interconsultas', 'bonos', 'finanzas', 'recetas', 'calculos',
       'rem', 'bandeja_ordenes', 'config_recinto',
     ]

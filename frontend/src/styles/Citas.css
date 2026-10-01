@@ -12,3 +12,15 @@
   border-color: #0f4c81;
   box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
+
+/* Requisito pendiente de la reserva: especialidad y, para el administrativo,
+   paciente. Sin esto se podia reservar a ciegas. */
+.citas-requisito {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid #b45309;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: 0.85rem;
+}

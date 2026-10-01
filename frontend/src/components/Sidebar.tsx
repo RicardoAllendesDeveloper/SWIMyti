@@ -16,9 +16,10 @@ type SidebarProps = {
 const ITEMS: { modulo: Modulo; label: string; ruta: string }[] = [
   { modulo: 'portal', label: 'Mi portal', ruta: '/portal' },
   { modulo: 'citas', label: 'Gestión de horas', ruta: '/citas' },
+  { modulo: 'agenda', label: 'Mi agenda', ruta: '/agenda' },
+  { modulo: 'jornadas', label: 'Jornadas', ruta: '/jornadas' },
   { modulo: 'fichas', label: 'Fichas médicas', ruta: '/dashboard' },
   { modulo: 'pacientes', label: 'Pacientes', ruta: '/pacientes' },
-  { modulo: 'disponibilidad', label: 'Agenda', ruta: '/disponibilidad' },
   { modulo: 'interconsultas', label: 'Interconsultas', ruta: '/interconsultas' },
   { modulo: 'bonos', label: 'Bonos de atención', ruta: '/bonos' },
   { modulo: 'finanzas', label: 'Presupuestos y finanzas', ruta: '/finanzas' },

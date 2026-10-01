@@ -65,6 +65,7 @@ const FIRMAS_RPC = {
     'p_direccion', 'p_fecha_nacimiento', 'p_sexo', 'p_prevision',
   ],
   fn_crear_usuario: ['p_email', 'p_password', 'p_nombres', 'p_apellidos', 'p_id_rol', 'p_rut'],
+  fn_bloquear_horarios: ['p_ids', 'p_motivo'],
   fn_eliminar_bloques_jornada: ['p_fecha', 'p_id_especialidad', 'p_id_profesional'],
   fn_generar_bloques_jornada: [
     'p_id_profesional', 'p_id_especialidad', 'p_fecha_inicio', 'p_fecha_fin',
@@ -73,6 +74,7 @@ const FIRMAS_RPC = {
   fn_paciente_liberar_cita: ['p_id_cita'],
   fn_paciente_liberar_toma_muestra: ['p_id_orden'],
   fn_paciente_reservar_toma_muestra: ['p_id_orden', 'p_id_horario'],
+  fn_reactivar_horarios: ['p_ids'],
   fn_rem_resumen: [],
 }
 
