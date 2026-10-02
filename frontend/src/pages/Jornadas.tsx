@@ -585,6 +585,35 @@ function Jornadas() {
     return horarios.filter((h) => seleccionBloqueo.includes(h.id_horario) && puedeBloquear(h))
   }
 
+  /**
+   * Las horas SELECCIONADAS que pertenecen a esta jornada.
+   *
+   * Existe para una razón concreta: la selección es global (se puede marcar
+   * un tramo en varias jornadas a la vez, que es lo que permite bloquear el
+   * mismo horario a varios profesionales), pero el botón de acción solo
+   * debe aparecer en las tarjetas donde hay algo seleccionado.
+   *
+   * Antes se usaba `seleccionadosBloqueo()` para decidir si pintar el botón, y
+   * como es global la condición se cumplía en todas las tarjetas: seleccionando
+   * horas en una jornada aparecían "Deshabilitar" y "Reactivar" en todas las
+   * demás. La acción seguía siendo correcta (operaba sobre la selección real),
+   * pero el botón se mostraba en la tarjeta equivocada, que es peor: uno cree
+   * que va a reactivar la jornada que está mirando y desactiva otra.
+   *
+   * Ojo: esto NO debe filtrar la acción, solo su visibilidad. Filtrar la acción
+   * rompería la selección múltiple entre jornadas.
+   *
+   * El filtro `puedeBloquear` es el mismo que usa la acción, y por un motivo
+   * concreto: si alguien marca un tramo y se hace tarde, esas horas ya no son
+   * accionables. Sin el filtro el botón quedaría mostrando "Deshabilitar 0
+   * horas" en una jornada que ya no tiene nada que deshabilitar.
+   */
+  function seleccionadosDe(g: GrupoJornada): HorarioDisponible[] {
+    return g.bloques.filter(
+      (b) => seleccionBloqueo.includes(b.id_horario) && puedeBloquear(b),
+    )
+  }
+
   /** Horas de una jornada que se pueden seleccionar (futuras y no completadas). */
   function seleccionablesDe(g: GrupoJornada): HorarioDisponible[] {
     return g.bloques.filter((b) => puedeBloquear(b))
@@ -1015,6 +1044,33 @@ function Jornadas() {
                     {errorBloques ? (
                       <p className="dash-error">{errorBloques}</p>
                     ) : null}
+                    {/*
+                      La selección es global a propósito: se puede marcar el
+                      mismo tramo en varias jornadas, que es como se bloquea una
+                      franja a varios profesionales de una. Pero eso obliga a
+                      decir cuál es el alcance de la acción, porque el botón
+                      "Deshabilitar" vive en cada tarjeta con selección y
+                      afecta a todas.
+                    */}
+                    {seleccionadosBloqueo().length > 0 ? (
+                      <div className="jornadas-seleccion">
+                        <strong>
+                          {seleccionadosBloqueo().length} hora
+                          {seleccionadosBloqueo().length === 1 ? '' : 's'}
+                        </strong>{' '}
+                        seleccionadas en{' '}
+                        {
+                          gruposJornada.filter((g) => seleccionadosDe(g).length > 0)
+                            .length
+                        }{' '}
+                        jornada
+                        {gruposJornada.filter((g) => seleccionadosDe(g).length > 0).length ===
+                        1
+                          ? ''
+                          : 's'}
+                        . La acción se aplica a todas.
+                      </div>
+                    ) : null}
                     {gruposJornada.length === 0 ? (
                       <p className="dash-empty">No hay bloques que coincidan.</p>
                     ) : (
@@ -1151,19 +1207,24 @@ function Jornadas() {
                                     Deshabilitar jornada ({seleccionablesDe(g).length})
                                   </button>
                                 ) : null}
-                                {seleccionadosBloqueo().length > 0 ? (
+{seleccionadosDe(g).length > 0 ? (
                                   <button
                                     type="button"
                                     className="dash-btn-primary jornada-bloquear"
                                     onClick={pedirBloqueo}
                                     disabled={bloqueando}
+                                    title={
+                                      seleccionadosBloqueo().length > seleccionadosDe(g).length
+                                        ? `Afecta a las ${seleccionadosBloqueo().length} horas seleccionadas, no solo las de esta jornada`
+                                        : undefined
+                                    }
                                   >
-                                    Deshabilitar {seleccionadosBloqueo().length} hora
-                                    {seleccionadosBloqueo().length === 1 ? '' : 's'}
+                                    Deshabilitar {seleccionadosDe(g).length} hora
+                                    {seleccionadosDe(g).length === 1 ? '' : 's'}
                                   </button>
                                 ) : null}
-                                {seleccionadosBloqueo().length > 0 &&
-                                seleccionadosBloqueo().every((b) => b.estado === 'bloqueada') ? (
+                                {seleccionadosDe(g).length > 0 &&
+                                  seleccionadosDe(g).every((b) => b.estado === 'bloqueada') ? (
                                   <button
                                     type="button"
                                     className="dash-btn-secondary jornada-reactivar"

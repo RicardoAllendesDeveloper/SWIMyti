@@ -622,6 +622,24 @@
   white-space: nowrap;
 }
 
+/*
+ * Aviso de selección activa en Jornadas.
+ *
+ * Existe porque la selección de horas es GLOBAL a varias jornadas (así se
+ * bloquea una franja a varios profesionales de una), mientras que el botón
+ * "Deshabilitar" aparece en cada tarjeta con selección. Sin este aviso no hay
+ * forma de saber a qué alcanza el botón que se está por apretar.
+ */
+.jornadas-seleccion {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 0.88rem;
+}
+
 @media (max-width: 640px) {
   .jornadas-nav {
     gap: 0.6rem;
