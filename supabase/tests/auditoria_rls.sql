@@ -181,7 +181,78 @@ where p.proname in ('fn_bloquear_horarios', 'fn_reactivar_horarios')
 order by p.proname, r.rolname;
 
 \echo ''
+\echo '=== 12. La atencion no puede existir sin cita ni sin bono (Fase 2) ==='
+\echo '--- El plan de la Fase 2 pide que no exista una atencion sin cita previa'
+\echo '--- ni sin bono asociado. Ambas cosas son invariantes del ESQUEMA: FK'
+\echo '--- NOT NULL. Se comprueban en information_schema, no con un INSERT de'
+\echo '--- prueba, para no depender de que haya citas creadas. ---'
+select
+  a.attname as columna,
+  a.attnotnull as es_not_null,
+  (select count(*) > 0 from pg_constraint con
+     join pg_class c on c.oid = con.conrelid
+    where c.relname = 'atenciones'
+      and con.contype = 'f'
+      and con.conkey = array[a.attnum]::smallint[]
+      and con.confrelid = 'public.citas'::regclass) as apunta_a_citas
+from pg_attribute a
+join pg_class c on c.oid = a.attrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname = 'atenciones'
+  and a.attname in ('id_cita', 'id_bono', 'id_profesional', 'id_paciente')
+  and a.attnum > 0 and not a.attisdropped
+order by a.attname;
+
+\echo ''
+\echo '=== 13. El trigger de vinculos de la atencion debe ser SECURITY DEFINER ==='
+\echo '--- Lee citas, bonos y bloques para compararlos con la atencion que se'
+\echo '--- inserta. Como invoker, fallaria con "permiso denegado" en vez del'
+\echo '--- mensaje de negocio, o pasaria sin validar. Ademas debe existir el'
+\echo '--- sello SWIMyti en los mensajes de exception. ---'
+select
+  p.prosecdef as es_security_definer,
+  (p.prosrc ilike '%swimyti:%') as tiene_sello_swimyti,
+  (p.prosrc ilike '%raise exception%') as levanta_excepcion,
+  (p.prorettype = 'trigger'::regtype) as es_trigger
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'fn_valida_vinculos_atencion';
+
+\echo ''
+\echo '=== 14. Nadie borra una atencion, y una cita no tiene dos atenciones ==='
+\echo '--- El bono es el registro de lo que se cobro. Si una cita admitiera'
+\echo '--- dos atenciones, o un bono respaldara dos, ese registro deja de'
+\echo '--- servir para nada. Sin politica de DELETE a proposito. ---'
+select 'politicas de DELETE sobre atenciones' as chequeo,
+       count(*)::text as valor,
+       case when count(*) = 0 then 'ok' else 'REVISAR' end as veredicto
+from pg_policies where tablename = 'atenciones' and cmd = 'DELETE'
+union all
+select 'indice unico por cita',
+       count(*)::text,
+       case when count(*) = 1 then 'ok' else 'REVISAR' end
+from pg_indexes where tablename = 'atenciones' and indexname = 'uq_atenciones_cita'
+union all
+select 'indice unico por bono',
+       count(*)::text,
+       case when count(*) = 1 then 'ok' else 'REVISAR' end
+from pg_indexes where tablename = 'atenciones' and indexname = 'uq_atenciones_bono'
+union all
+select 'anular exige motivo (CHECK presente)',
+       count(*)::text,
+       case when count(*) = 1 then 'ok' else 'REVISAR' end
+from pg_constraint
+where conrelid = 'public.atenciones'::regclass
+  and conname = 'atenciones_estado_anulacion_check'
+union all
+select 'atenciones tiene RLS forzado',
+       case when relforcerowsecurity then 'true' else 'false' end,
+       case when relforcerowsecurity then 'ok' else 'REVISAR' end
+from pg_class where relname = 'atenciones';
+
+\echo ''
 \echo '=== FIN. Ningun bloque debe marcar REVISAR ni devolver filas en 1, 5, 6, 8, 9 ni 11. ==='
 \echo '   El 2 y el 7 son listas de revision, no fallas. El 9 y el 10 son checks'
-\echo '   que deben dar todos true / ninguna fila. ==='
+\echo '   que deben dar todos true / ninguna fila. El 12 debe mostrar las cuatro'
+\echo '   columnas con es_not_null = true; 13 y 14 no deben marcar REVISAR. ==='
 \echo ''

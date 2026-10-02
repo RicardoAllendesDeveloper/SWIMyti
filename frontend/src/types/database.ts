@@ -87,6 +87,35 @@ export type MotivoBloqueo = {
   activo?: boolean
 }
 
+/**
+ * Atención clínica: el ACTO realizado, no su registro clínico.
+ *
+ * No se confunde con la ficha. La ficha (`fichas_medicas`) es el contenido
+ * clínico y es append-only bajo la Ley 19.628. La atención es el hecho
+ * verificable de que se atendió a alguien, con qué bono y a nombre de qué
+ * profesional. Son cosas distintas y por eso viven en tablas distintas.
+ *
+ * Las cuatro referencias son NOT NULL en la base: no existe una atención sin
+ * cita ni sin bono. Eso lo garantiza el esquema, no el formulario.
+ */
+export type EstadoAtencion = 'realizada' | 'anulada'
+
+export type Atencion = {
+  id_atencion: number
+  id_cita: number
+  id_bono: number
+  /** El que UCÓ, no el que creó el registro. La BD lo contrasta con el bloque de la cita. */
+  id_profesional: string
+  id_paciente: number
+  id_especialidad?: number | null
+  fecha_atencion: string
+  estado: EstadoAtencion
+  /** Obligatorio si `estado` es 'anulada'. Una atención no se borra: se anula y se explica. */
+  motivo_anulacion?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export type Cita = {
   id_cita: number
   id_horario: number
