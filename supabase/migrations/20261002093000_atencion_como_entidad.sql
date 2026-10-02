@@ -115,12 +115,11 @@ comment on column public.atenciones.motivo_anulacion is
 -- mismo paciente. Eso solo se comprueba leyendo las otras tablas, asi que va
 -- en un trigger.
 --
--- SECURITY DEFINER: este trigger lee citas y bonos para compararlos con la
--- atencion. Corre como el usuario que inserta, y las politicas de lectura de
--- citas no incluyen a todos los roles que pueden registrar una atencion
--- (por ejemplo, si un administrativo documenta una atencion ajena). Sin
--- DEFINER el INSERT fallaria con "permiso denegado" en vez de con el mensaje
--- de negocio correcto, o peor, pasaria sin validar.
+-- SECURITY DEFINER: este trigger lee citas, bonos y bloques para compararlos
+-- con la atencion. Corre como el usuario que inserta, y las politicas de
+-- lectura de citas no cubren necesariamente a quien esta registrando. Sin
+-- DEFINER el INSERT fallaria con "permiso denegado" en vez del mensaje de
+-- negocio correcto, o peor, pasaria sin validar.
 --
 -- Se hace BEFORE INSERT: si el vinculo esta mal, no hay fila que ensucie la
 -- tabla.
@@ -275,31 +274,33 @@ create policy atenciones_select_clinico
     or (select public.fn_tiene_rol(array['jefatura']))
   );
 
--- Quien puede REGISTRAR una atencion: el personal clinico que atiende, y el
--- administrativo (recepcion confirma y emite el bono). La escritura es
--- bloqueada para el administrador y el paciente por falta de politica.
+-- Quien REGISTRA una atencion: solo el personal clinico que atiende.
+--
+-- No se incluye a `administrativo`, aunque recepcion sea quien emite el bono.
+-- El bono vive en bonos_atencion, que es el registro economico y si es
+-- visible para finanzas. La atencion es el ACTO CLINICO, y segun la
+-- especificacion funcional es el doctor y la enfermeria quienes tocan
+-- atenciones. Ademas, con esta politica el administrativo podria insertar y
+-- no leer: una asimetria que no tiene sentido.
 create policy atenciones_insert_registra
   on public.atenciones
   for insert
   to authenticated
   with check (
     (select public.fn_es_personal_clinico())
-    or (select public.fn_tiene_rol(array['administrativo']))
   );
 
 -- La atencion se anula, no se borra ni se edita libremente.
--- UPDATE solo para el personal clinico, y el trigger de estado exige motivo.
+-- UPDATE solo para el personal clinico, y el CHECK exige motivo al anular.
 create policy atenciones_update_anula
   on public.atenciones
   for update
   to authenticated
   using (
     (select public.fn_es_personal_clinico())
-    or (select public.fn_tiene_rol(array['administrativo']))
   )
   with check (
     (select public.fn_es_personal_clinico())
-    or (select public.fn_tiene_rol(array['administrativo']))
   );
 
 -- DELETE: nadie. Una atencion realizada no se borra; se anula.
