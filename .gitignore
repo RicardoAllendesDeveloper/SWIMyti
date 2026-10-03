@@ -44,6 +44,23 @@ docs/*.local.*
 docs/*_local.*
 docs/*-local.*
 
+# -----------------------------------------------------------------------------
+# Documentos .docx — NO subir (2026-10-02, decisión de publicación pública)
+#
+# Los .docx son archivos ZIP comprimidos: un escáner de secretos con grep NO los
+# lee, porque el texto vive dentro de word/document.xml. Por eso se colaron los
+# emails de las cuentas demo (incluido el del administrador real) sin que nada
+# los detectara.
+#
+# Los .docx quedan archivados en docs-academicos-archivados/, fuera de git.
+#
+# Nota: PLAN_PRUEBAS_V3 y Descripción honesta de los módulos solo existían en
+# .docx; no se regeneraron como .md. El plan de pruebas vigente en el repo es
+# PLAN_PRUEBAS_V2.md.
+# -----------------------------------------------------------------------------
+docs/*.docx
+docs-academicos-archivados/
+
 # Volcados y exportaciones de base de datos
 *.dump
 *.sql.gz

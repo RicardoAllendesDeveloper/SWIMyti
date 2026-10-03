@@ -62,7 +62,7 @@ begin
       ('enfermeria.demo@swimyti.cl', 'enfermeria',    'Carlos',  'Pérez Soto'),
       ('admin.demo@swimyti.cl',      'administrativo','Javiera', 'López Morales'),
       ('apoyo.demo@swimyti.cl',      'unidad_apoyo',  'Rodrigo', 'Castro Díaz'),
-      ('paciente.demo@swimyti.cl',   'paciente',      'Camila',  'Torres Vega'),
+      ('paciente.demo@swimyti.cl',   'paciente',      'Paciente','Demo Uno'),
       ('jefatura.demo@swimyti.cl',   'enfermeria',    'Patricia','Munos Lara')
     ) as t(email, rol, nombres, apellidos)
   loop
@@ -135,6 +135,13 @@ begin
   end loop;
 
   -- ---------------- Paciente: vincular registro en pacientes ----------------
+  --
+  -- Datos identificables: el nombre es genérico y el RUT es 00.000.000-4,
+  -- que es válido en formato pero imposible en el registro civil (cuerpo de
+  -- puros ceros). El repo es público y cualquier RUT válido se puede consultar
+  -- en el Registro Civil, así que un RUT "bonito" como 26.765.432-1 podría
+  -- exponer a una persona real. No usar RUTs válidos en datos de demo.
+  -- ----------------------------------------------------------------------
   select id_usuario into v_id
   from public.usuarios
   where email = 'paciente.demo@swimyti.cl';
@@ -142,16 +149,16 @@ begin
   if v_id is not null then
     if not exists (
       select 1 from public.pacientes
-      where id_usuario_portal = v_id or lower(rut) = '26.765.432-1'
+      where id_usuario_portal = v_id or lower(rut) = '00.000.000-4'
     ) then
       insert into public.pacientes (
         id_usuario_portal, rut, prevision, nombres, apellidos, sexo, activo
       )
-      values (v_id, '26.765.432-1', 'FONASA', 'Camila', 'Torres Vega', 'F', true);
+      values (v_id, '00.000.000-4', 'FONASA', 'Paciente', 'Demo Uno', 'F', true);
     else
       update public.pacientes
         set id_usuario_portal = v_id, activo = true, updated_at = now()
-      where id_usuario_portal = v_id or lower(rut) = '26.765.432-1';
+      where id_usuario_portal = v_id or lower(rut) = '00.000.000-4';
     end if;
   end if;
 
