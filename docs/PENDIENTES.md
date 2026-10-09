@@ -16,6 +16,35 @@ decidió pausarlo. Documenta **qué quedó a medias, por qué, y en qué orden c
 
 ---
 
+## Plan en curso — semana del 9 al 16 de octubre de 2026
+
+**Objetivo de la semana:** dejar la propuesta lo más completa posible antes de que la base vuelva a
+dormirse, avanzando solo en lo que **no depende de tener clientes**. En paralelo siguen el trabajo
+freelance, la práctica y la búsqueda de empleo.
+
+**Estado de la base.** El proyecto Supabase se pausó solo (plan gratuito, 7 días sin actividad) y ya
+fue resumido: datos y configuración intactos. Se mantiene arriba mientras haya consultas; si pasan
+~7 días sin una sola consulta se vuelve a pausar, y **eso es lo esperado, no una falla**. La ventana
+para resumirlo otra vez es de **90 días** según el correo de aviso (la documentación dice 1 año), así
+que se trata como 90 días y conviene anotar la fecha exacta de la próxima pausa.
+
+**Frentes elegidos:**
+
+1. **Decisión de tenancy multi-centro** (ver Bloque 3). Va primero porque es la decisión que, mal
+   tomada, obliga a migrar datos de clientes reales después. No depende de tener clientes.
+2. **Bitácora de accesos — Decreto 41 art. 9** (ver 2.1). Es el requisito legal más barato de
+   resolver y el más fácil de auditar que exista: barato ahora, caro después.
+
+**Queda acordado para más adelante:** volver a testear las funciones básicas del sistema y terminar
+la reparación que estaba en curso cuando apareció el problema que detuvo el proyecto. Se retoma con
+calma, cuando el resto del trabajo lo permita.
+
+**Nota operativa.** Las migraciones se siguen aplicando pegando el `.sql` completo en el SQL Editor
+del dashboard, como las 62 anteriores. El historial de `supabase_migrations` sigue vacío: no se usa
+`db push` ni `apply_migration`.
+
+---
+
 ## Estado técnico actual: el proyecto está sano
 
 Antes de los pendientes, lo que sí está verificado y funcionando:
