@@ -60,6 +60,10 @@ Antes de los pendientes, lo que sí está verificado y funcionando:
 | Deploy | `https://swi-myti.vercel.app` publicado |
 | Repositorio | `https://github.com/RicardoAllendesDeveloper/SWIMyti` (público, saneado) |
 
+**Última verificación completa: 2026-10-09**, hecha después de resumir la base que se había pausado
+sola: build correcto, 71/71 tests frontend y 44 consultas / 13 RPC / 0 fallos contra la base real. La
+pausa no dañó nada: esquema, políticas y firmas de RPC respondieron igual que antes.
+
 **El código no está roto ni a medio construir.** Los pendientes de abajo son mejoras y
 cumplimientos legales, no repair de emergencia.
 
